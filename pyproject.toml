@@ -3,13 +3,12 @@ name = "pcsaft-quaternary"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "Maximilian Fleckenstein", email = "maximilianfv@uc.cl" }
-]
 requires-python = ">=3.13"
+license = "MIT AND (BSD-2-Clause OR Apache-2.0)"
+authors = [{ name = "Maximilian Fleckenstein", email = "maximilianfv@uc.cl" }]
 dependencies = [
-    "feos==0.9.3",
-    "python-ternary>=1.0.8",
+  "feos==0.9.3",
+  "python-ternary>=1.0.8",
 ]
 
 [build-system]
