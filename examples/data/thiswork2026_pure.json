@@ -1,0 +1,154 @@
+[
+  {
+    "identifier": {
+      "cas": "89-83-8",
+      "name": "thymol",
+      "iupac_name": "5-methyl-2-propan-2-ylphenol",
+      "smiles": "CC1=CC(=C(C=C1)C(C)C)O",
+      "inchi": "InChI=1S/C10H14O/c1-7(2)9-5-4-8(3)6-10(9)11/h4-7,11H,1-3H3",
+      "formula": "C10H14O"
+    },
+    "molarweight": 150.22,
+    "m": 2.950205301541812,
+    "sigma": 4.262850375294069,
+    "epsilon_k": 340.80391831673734,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 1.0,
+        "kappa_ab": 0.010959461837115322,
+        "epsilon_k_ab": 2318.3860477763537
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "499-75-2",
+      "name": "carvacrol",
+      "iupac_name": "2-methyl-5-propan-2-ylphenol",
+      "smiles": "CC1=C(C=C(C=C1)C(C)C)O",
+      "inchi": "InChI=1S/C10H14O/c1-7(2)9-5-4-8(3)10(11)6-9/h4-7,11H,1-3H3",
+      "formula": "C10H14O"
+    },
+    "molarweight": 150.22,
+    "m": 3.1118318872615385,
+    "sigma": 4.187314323082541,
+    "epsilon_k": 350.52285278288014,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 1.0,
+        "kappa_ab": 0.0031695590200995446,
+        "epsilon_k_ab": 2366.5189881322613
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "97-53-0",
+      "name": "eugenol",
+      "iupac_name": "2-methoxy-4-prop-2-enylphenol",
+      "smiles": "COC1=C(C=CC(=C1)CC=C)O",
+      "inchi": "InChI=1S/C10H12O2/c1-3-4-8-5-6-9(11)10(7-8)12-2/h3,5-7,11H,1,4H2,2H3",
+      "formula": "C10H12O2"
+    },
+    "molarweight": 164.2,
+    "m": 4.628635437623809,
+    "sigma": 3.5756973201531035,
+    "epsilon_k": 221.25109647458672,
+    "association_sites": [
+      {
+        "na": 2.0,
+        "nb": 1.0,
+        "kappa_ab": 0.1857971302380298,
+        "epsilon_k_ab": 2498.176984469522
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "106-24-1",
+      "name": "geraniol",
+      "iupac_name": "(2E)-3,7-dimethylocta-2,6-dien-1-ol",
+      "smiles": "CC(=CCC/C(=C/CO)/C)C",
+      "inchi": "InChI=1S/C10H18O/c1-9(2)5-4-6-10(3)7-8-11/h5,7,11H,4,6,8H2,1-3H3/b10-7+",
+      "formula": "C10H18O"
+    },
+    "molarweight": 154.25,
+    "m": 2.9826836739237654,
+    "sigma": 4.430142564917298,
+    "epsilon_k": 335.55009132723745,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 1.0,
+        "kappa_ab": 0.0012655405067500394,
+        "epsilon_k_ab": 3244.378176078944
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "76-22-2",
+      "name": "camphor",
+      "iupac_name": "1,7,7-trimethylbicyclo[2.2.1]heptan-2-one",
+      "smiles": "CC1(C2CCC1(C(=O)C2)C)C",
+      "inchi": "InChI=1S/C10H16O/c1-9(2)7-4-5-10(9,3)8(11)6-7/h7H,4-6H2,1-3H3",
+      "formula": "C10H16O"
+    },
+    "molarweight": 152.23,
+    "m": 3.5200424621465136,
+    "sigma": 3.9800412258099294,
+    "epsilon_k": 310.0196819001389,
+    "mu": 0.043871758782399906,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 0.0
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "99-49-0",
+      "name": "carvone",
+      "iupac_name": "2-methyl-5-prop-1-en-2-ylcyclohex-2-en-1-one",
+      "smiles": "CC1=CCC(CC1=O)C(=C)C",
+      "inchi": "InChI=1S/C10H14O/c1-7(2)9-5-4-8(3)10(11)6-9/h4,9H,1,5-6H2,2-3H3",
+      "formula": "C10H14O"
+    },
+    "molarweight": 150.22,
+    "m": 4.125713655762886,
+    "sigma": 3.768608574051706,
+    "epsilon_k": 296.0803846838413,
+    "mu": 3.600681793895831,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 0.0
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "60-12-8",
+      "name": "2-phenylethanol",
+      "iupac_name": "2-phenylethanol",
+      "smiles": "C1=CC=C(C=C1)CCO",
+      "inchi": "InChI=1S/C8H10O/c9-7-6-8-4-2-1-3-5-8/h1-5,9H,6-7H2",
+      "formula": "C8H10O"
+    },
+    "molarweight": 122.16,
+    "m": 3.1887359642238633,
+    "sigma": 3.8051710813277513,
+    "epsilon_k": 325.0011687796277,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 1.0,
+        "kappa_ab": 0.017145086216873252,
+        "epsilon_k_ab": 2105.614601892374
+      }
+    ]
+  }
+]

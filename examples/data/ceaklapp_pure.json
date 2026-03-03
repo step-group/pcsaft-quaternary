@@ -1,0 +1,78 @@
+[
+  {
+    "identifier": {
+      "cas": "89-83-8",
+      "name": "thymol_ceaklapp",
+      "formula": "C10H14O"
+    },
+    "molarweight": 150.22,
+    "m": 4.012,
+    "sigma": 3.816,
+    "epsilon_k": 290.22,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 1.0,
+        "kappa_ab": 0.0616,
+        "epsilon_k_ab": 1660.0
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "2216-51-5",
+      "name": "l-menthol_ceaklapp",
+      "formula": "C10H20O"
+    },
+    "molarweight": 156.27,
+    "m": 4.152,
+    "sigma": 3.903,
+    "epsilon_k": 262.4,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 1.0,
+        "kappa_ab": 0.0996,
+        "epsilon_k_ab": 1785.6
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "124-07-2",
+      "name": "octanoic_acid_ceaklapp",
+      "formula": "C8H16O2"
+    },
+    "molarweight": 144.21,
+    "m": 7.048,
+    "sigma": 3.136,
+    "epsilon_k": 234.36,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 1.0,
+        "kappa_ab": 0.02,
+        "epsilon_k_ab": 1889.2
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "98-00-0",
+      "name": "furfuryl_alcohol_ceaklapp",
+      "formula": "C5H6O2"
+    },
+    "molarweight": 98.1,
+    "m": 4.3611,
+    "sigma": 3.0048,
+    "epsilon_k": 218.34,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 2.0,
+        "kappa_ab": 0.1462,
+        "epsilon_k_ab": 1834.33
+      }
+    ]
+  }
+]
