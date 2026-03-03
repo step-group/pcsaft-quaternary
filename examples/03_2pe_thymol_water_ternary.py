@@ -36,9 +36,10 @@ tie_lines = ternary_lle(
     T=298.15 * si.KELVIN,
     P=1.0 * si.BAR,
     solute="2-phenylethanol",
-    solvent="carvone",
+    solvent="camphor",
     diluent="water_4C_pcpsaft_rehner2020",
-    output=str(OUT / "LLE_2PE+carvone+water_T25C_P1bar.png"),
+    output=str(OUT / "LLE_2PE+camphor+water_T25C_P1bar.png"),
+    induced_association=True,
 )
 
 print(f"\nTotal LLE tie-lines found: {len(tie_lines)}")

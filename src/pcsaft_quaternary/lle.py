@@ -4,7 +4,14 @@ import json
 
 import numpy as np
 import si_units as si
-from feos import EquationOfState, IdentifierOption, Parameters, PhaseEquilibrium
+from feos import (
+    BinaryRecord,
+    EquationOfState,
+    IdentifierOption,
+    Parameters,
+    PhaseEquilibrium,
+    PureRecord,
+)
 
 
 def _components_in_file(path, component_names):
@@ -15,7 +22,83 @@ def _components_in_file(path, component_names):
     return [c for c in component_names if c in names_in_file]
 
 
-def build_eos(pure_json, component_names, binary_json=None):
+def _is_non_associating(record):
+    """Return True if a PureRecord has no site with both na >= 1 and nb >= 1."""
+    for site in record.association_sites:
+        if site.get("na", 0.0) >= 1.0 and site.get("nb", 0.0) >= 1.0:
+            return False
+    return True
+
+
+def _load_binary_records(binary_json):
+    """Load a binary-interaction JSON file into a list of BinaryRecord objects."""
+    with open(binary_json) as f:
+        data = json.load(f)
+    return [BinaryRecord.from_json_str(json.dumps(entry)) for entry in data]
+
+
+def _apply_induced_association(pure_records, diluent_idx, target_names):
+    """Return a new list of PureRecords with induced association applied.
+
+    For each component in *target_names* that is currently non-associating
+    (no site has both na >= 1 and nb >= 1), an association site is added with:
+
+    - na = 1, nb = 1
+    - kappa_ab  = kappa_ab of the diluent
+    - epsilon_k_ab = 0.0
+
+    Parameters
+    ----------
+    pure_records : list[PureRecord]
+        Records in component order.
+    diluent_idx : int
+        Index of the diluent component (provides kappa_ab reference).
+    target_names : set[str]
+        Component names to consider for modification.
+
+    Returns
+    -------
+    list[PureRecord]
+        Modified records (originals are left unchanged; only non-associating
+        targets receive the new site).
+
+    Raises
+    ------
+    ValueError
+        If the diluent has no association site with kappa_ab defined.
+    """
+    # --- get diluent kappa_ab ---
+    diluent_sites = pure_records[diluent_idx].association_sites
+    kappa_ref = None
+    for site in diluent_sites:
+        if "kappa_ab" in site:
+            kappa_ref = site["kappa_ab"]
+            break
+    if kappa_ref is None:
+        diluent_name = pure_records[diluent_idx].identifier.name
+        raise ValueError(
+            f"Induced association requires the diluent ({diluent_name!r}) to have "
+            "a kappa_ab parameter, but none was found."
+        )
+
+    induced_site = {"na": 1.0, "nb": 1.0, "kappa_ab": kappa_ref, "epsilon_k_ab": 0.0}
+
+    modified = []
+    for record in pure_records:
+        name = record.identifier.name
+        if name in target_names and _is_non_associating(record):
+            mr = record.model_record
+            record = PureRecord(
+                record.identifier,
+                record.molarweight,
+                association_sites=[induced_site],
+                **mr,
+            )
+        modified.append(record)
+    return modified
+
+
+def build_eos(pure_json, component_names, binary_json=None, induced_association=False):
     """Load PC-SAFT parameters from JSON file(s) and return a feos EOS object.
 
     Parameters
@@ -26,6 +109,13 @@ def build_eos(pure_json, component_names, binary_json=None):
         Names of the four components in order [solute, solvent1, solvent2, diluent].
     binary_json : str or None
         Optional path to JSON file containing binary interaction parameters (kij).
+    induced_association : bool or list[str]
+        If ``True``, apply induced association to every non-associating component
+        except the diluent (last entry in *component_names*).
+        If a list of component names, apply only to those specific components.
+        In both cases the diluent's kappa_ab is used as the reference; its
+        epsilon_k_ab is set to 0.0.  Non-associating is defined as: no
+        association site with **both** na >= 1 **and** nb >= 1.
 
     Returns
     -------
@@ -34,7 +124,6 @@ def build_eos(pure_json, component_names, binary_json=None):
         Molar masses in g/mol, in the same order as ``component_names``.
     """
     if isinstance(pure_json, (list, tuple)):
-        # Each tuple must list only the components that live in that file.
         input_pairs = [
             (found, path)
             for path in pure_json
@@ -52,8 +141,25 @@ def build_eos(pure_json, component_names, binary_json=None):
             binary_path=binary_json,
             identifier_option=IdentifierOption.Name,
         )
-    # pure_records are ordered as component_names — extract molar masses here
-    # before the params object is consumed by EquationOfState.pcsaft.
+
+    # Induced association: modify pure records and rebuild params.
+    if induced_association is not False and induced_association is not None:
+        diluent_idx = len(component_names) - 1
+        if induced_association is True:
+            # All non-diluent components are candidates.
+            target_names = set(component_names[:diluent_idx])
+        else:
+            target_names = set(induced_association)
+
+        pure_records = list(params.pure_records)
+        pure_records = _apply_induced_association(pure_records, diluent_idx, target_names)
+        binary_records = _load_binary_records(binary_json) if binary_json else []
+        params = Parameters.from_records(
+            pure_records,
+            binary_records=binary_records,
+            identifier_option=IdentifierOption.Name,
+        )
+
     molar_masses = np.array([r.molarweight for r in params.pure_records])
     return EquationOfState.pcsaft(params), molar_masses
 

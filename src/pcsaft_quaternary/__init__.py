@@ -26,6 +26,7 @@ def pseudoternary_lle(
     n_points=51,
     solvent_label=None,
     mass_basis=True,
+    induced_association=False,
 ):
     """Compute and plot a pseudoternary LLE phase diagram using PC-SAFT.
 
@@ -67,6 +68,11 @@ def pseudoternary_lle(
     mass_basis : bool
         If ``True`` (default), plot and return pseudo-ternary coordinates in
         mass fractions.  If ``False``, use mole fractions.
+    induced_association : bool or list[str]
+        If ``True``, apply induced association to every non-associating
+        component except the diluent.  If a list of component names, apply
+        only to those specific components.  The diluent's kappa_ab is used
+        as the reference; epsilon_k_ab is forced to 0.0.
 
     Returns
     -------
@@ -93,7 +99,10 @@ def pseudoternary_lle(
     component_names = [solute, solvent1, solvent2, diluent]
 
     # Build EOS (also returns molar masses for optional mass-fraction conversion)
-    eos, molar_masses = build_eos(pure_json, component_names, binary_json=binary_json)
+    eos, molar_masses = build_eos(
+        pure_json, component_names, binary_json=binary_json,
+        induced_association=induced_association,
+    )
 
     # Scan ternary grid (always returns mole-fraction data in *_4comp fields)
     tie_line_data = scan_pseudoternary(
@@ -145,6 +154,7 @@ def ternary_lle(
     output=None,
     n_points=51,
     mass_basis=True,
+    induced_association=False,
 ):
     """Compute and plot a true ternary LLE phase diagram using PC-SAFT.
 
@@ -172,6 +182,8 @@ def ternary_lle(
     mass_basis : bool
         If ``True`` (default), plot and return coordinates in mass fractions.
         If ``False``, use mole fractions.
+    induced_association : bool or list[str]
+        Same semantics as in ``pseudoternary_lle``.
 
     Returns
     -------
@@ -193,7 +205,10 @@ def ternary_lle(
 
     component_names = [solute, solvent, diluent]
 
-    eos, molar_masses = build_eos(pure_json, component_names, binary_json=binary_json)
+    eos, molar_masses = build_eos(
+        pure_json, component_names, binary_json=binary_json,
+        induced_association=induced_association,
+    )
 
     tie_line_data = scan_ternary(eos, T, P, n_points=n_points)
 
