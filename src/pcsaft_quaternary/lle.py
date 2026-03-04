@@ -152,7 +152,9 @@ def build_eos(pure_json, component_names, binary_json=None, induced_association=
             target_names = set(induced_association)
 
         pure_records = list(params.pure_records)
-        pure_records = _apply_induced_association(pure_records, diluent_idx, target_names)
+        pure_records = _apply_induced_association(
+            pure_records, diluent_idx, target_names
+        )
         binary_records = _load_binary_records(binary_json) if binary_json else []
         params = Parameters.from_records(
             pure_records,
@@ -251,9 +253,9 @@ def scan_ternary(eos, T, P, n_points=51):
     results = []
     n = n_points
 
-    for i in range(0, n + 1):        # component A
+    for i in range(0, n + 1):  # component A
         for j in range(0, n - i + 1):  # component B
-            k = n - i - j              # component C
+            k = n - i - j  # component C
             # Skip pure-component corners
             if (i == 0) + (j == 0) + (k == 0) >= 2:
                 continue
@@ -263,7 +265,7 @@ def scan_ternary(eos, T, P, n_points=51):
 
             try:
                 result = PhaseEquilibrium.tp_flash(
-                    eos, T, P, feed * si.MOL, max_iter=10000
+                    eos, T, P, feed * si.MOL, max_iter=50000
                 )
             except Exception:
                 continue
@@ -282,12 +284,12 @@ def scan_ternary(eos, T, P, n_points=51):
 
             results.append(
                 {
-                    "feed_pseudo":   tuple(float(v) for v in feed),
+                    "feed_pseudo": tuple(float(v) for v in feed),
                     "phase1_pseudo": tuple(float(v) for v in x1),
                     "phase2_pseudo": tuple(float(v) for v in x2),
-                    "feed_3comp":    feed,
-                    "phase1_3comp":  x1,
-                    "phase2_3comp":  x2,
+                    "feed_3comp": feed,
+                    "phase1_3comp": x1,
+                    "phase2_3comp": x2,
                 }
             )
 
@@ -372,12 +374,12 @@ def scan_pseudoternary(eos, T, P, solvent_ratio, n_points=51):
 
             results.append(
                 {
-                    "feed_pseudo":   _to_pseudo_ternary(feed),
+                    "feed_pseudo": _to_pseudo_ternary(feed),
                     "phase1_pseudo": _to_pseudo_ternary(x1),
                     "phase2_pseudo": _to_pseudo_ternary(x2),
-                    "feed_4comp":    feed,
-                    "phase1_4comp":  x1,
-                    "phase2_4comp":  x2,
+                    "feed_4comp": feed,
+                    "phase1_4comp": x1,
+                    "phase2_4comp": x2,
                 }
             )
 
