@@ -67,11 +67,20 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path):
     tax.plot(_arr(phase1_sorted), color=_BINODAL, linewidth=2.0, label="PC-SAFT binodal")
     tax.plot(_arr(phase2_sorted), color=_BINODAL, linewidth=2.0)
 
-    # --- tie-lines: 10 evenly spaced along the binodal ---
-    # Sort by solute fraction in the solvent-rich phase so spacing follows the curve.
-    sorted_tl = sorted(tie_line_data, key=lambda d: d["phase2_pseudo"][0])
-    n_show = min(10, len(sorted_tl))
-    tl_indices = np.linspace(0, len(sorted_tl) - 1, n_show, dtype=int)
+    # --- tie-lines: 10 evenly spaced, interior only (edge tielines lie on the
+    # boundary and are already visible via the binodal curve) ---
+    _EDGE_TOL = 1e-3
+    interior_tl = [
+        d for d in tie_line_data
+        if not any(
+            d["phase1_pseudo"][k] < _EDGE_TOL and d["phase2_pseudo"][k] < _EDGE_TOL
+            for k in range(3)
+        )
+    ]
+    sorted_tl = sorted(interior_tl, key=lambda d: d["phase2_pseudo"][0])
+    n_show = min(7, len(sorted_tl))
+    tl_indices = np.linspace(0, len(sorted_tl) - 1, n_show, dtype=int) if sorted_tl else []
+
     print(
         f"Tie-lines [{names_pseudo[0]} | {names_pseudo[1]} | {names_pseudo[2]}] "
         f"at T = {T_K - 273.15:.2f} °C, P = {P_Pa / 1e5:.3f} bar"
@@ -80,19 +89,15 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path):
     for idx in tl_indices:
         p1 = sorted_tl[idx]["phase1_pseudo"]
         p2 = sorted_tl[idx]["phase2_pseudo"]
-        # Remap coords to match axis convention (bottom=diluent, right=solute, left=solvent)
         p1_plot = (p1[2], p1[0], p1[1])
         p2_plot = (p2[2], p2[0], p2[1])
         tax.line(
             p1_plot, p2_plot,
             linewidth=1.5,
-            markersize=6,
-            markeredgewidth=1.2,
-            markeredgecolor="red",
-            markerfacecolor="white",
-            marker="o",
+            marker=None,
             color=_TIELINE,
             linestyle=":",
+            zorder=5,
         )
         print(
             f"  Tie-line {idx:3d}: "

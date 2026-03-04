@@ -250,48 +250,69 @@ def scan_ternary(eos, T, P, n_points=51):
     mirror the output of ``scan_pseudoternary`` so that
     ``plot_pseudoternary_lle`` can be reused unchanged.
     """
+    _mol_m3 = si.MOL / si.METER**3
+
+    def _flash_lle(feed):
+        f = np.where(feed < 1e-6, 1e-6, feed)
+        f = f / f.sum()
+        try:
+            result = PhaseEquilibrium.tp_flash(eos, T, P, f * si.MOL, max_iter=50)
+        except Exception:
+            return None
+        x1 = np.array(result.liquid.molefracs)
+        x2 = np.array(result.vapor.molefracs)
+        rho1 = result.liquid.density / _mol_m3
+        rho2 = result.vapor.density / _mol_m3
+        if rho1 <= 600 or rho2 <= 600:
+            return None
+        if np.allclose(x1, x2, atol=1e-4):
+            return None
+        return f, x1, x2
+
     results = []
     n = n_points
 
-    for i in range(0, n + 1):  # component A
-        for j in range(0, n - i + 1):  # component B
-            k = n - i - j  # component C
-            # Skip pure-component corners
-            if (i == 0) + (j == 0) + (k == 0) >= 2:
+    # --- interior scan ---
+    for i in range(1, n + 1):
+        for j in range(1, n - i + 1):
+            k = n - i - j
+            if k < 1:
                 continue
-
             feed = np.array([i / n, j / n, k / n], dtype=float)
-            feed = feed / feed.sum()
-
-            try:
-                result = PhaseEquilibrium.tp_flash(
-                    eos, T, P, feed * si.MOL, max_iter=50000
-                )
-            except Exception:
+            hit = _flash_lle(feed)
+            if hit is None:
                 continue
+            f, x1, x2 = hit
+            results.append({
+                "feed_pseudo":   tuple(float(v) for v in f),
+                "phase1_pseudo": tuple(float(v) for v in x1),
+                "phase2_pseudo": tuple(float(v) for v in x2),
+                "feed_3comp":    f,
+                "phase1_3comp":  x1,
+                "phase2_3comp":  x2,
+            })
 
-            x1 = np.array(result.liquid.molefracs)
-            x2 = np.array(result.vapor.molefracs)
-
-            _mol_m3 = si.MOL / si.METER**3
-            rho1 = result.liquid.density / _mol_m3
-            rho2 = result.vapor.density / _mol_m3
-            if rho1 <= 600 or rho2 <= 600:
+    # --- binary edge scan: one representative per edge ---
+    edges = [
+        [np.array([0.0, j/n, (n-j)/n]) for j in range(1, n)],  # A=0
+        [np.array([i/n, 0.0, (n-i)/n]) for i in range(1, n)],  # B=0
+        [np.array([i/n, (n-i)/n, 0.0]) for i in range(1, n)],  # C=0
+    ]
+    for edge in edges:
+        for feed in edge:
+            hit = _flash_lle(feed)
+            if hit is None:
                 continue
-
-            if np.allclose(x1, x2, atol=1e-4):
-                continue
-
-            results.append(
-                {
-                    "feed_pseudo": tuple(float(v) for v in feed),
-                    "phase1_pseudo": tuple(float(v) for v in x1),
-                    "phase2_pseudo": tuple(float(v) for v in x2),
-                    "feed_3comp": feed,
-                    "phase1_3comp": x1,
-                    "phase2_3comp": x2,
-                }
-            )
+            f, x1, x2 = hit
+            results.append({
+                "feed_pseudo":   tuple(float(v) for v in f),
+                "phase1_pseudo": tuple(float(v) for v in x1),
+                "phase2_pseudo": tuple(float(v) for v in x2),
+                "feed_3comp":    f,
+                "phase1_3comp":  x1,
+                "phase2_3comp":  x2,
+            })
+            break
 
     return results
 
@@ -326,61 +347,81 @@ def scan_pseudoternary(eos, T, P, solvent_ratio, n_points=51):
         - ``phase1_4comp``  : np.ndarray  4-component mole fractions of phase 1
         - ``phase2_4comp``  : np.ndarray  4-component mole fractions of phase 2
     """
+    _mol_m3 = si.MOL / si.METER**3
+
+    def _flash_lle(feed):
+        """Return (x1, x2) if feed splits into two liquids, else None."""
+        f = np.where(feed < 1e-6, 1e-6, feed)
+        f = f / f.sum()
+        try:
+            result = PhaseEquilibrium.tp_flash(eos, T, P, f * si.MOL, max_iter=50)
+        except Exception:
+            return None
+        x1 = np.array(result.liquid.molefracs)
+        x2 = np.array(result.vapor.molefracs)
+        rho1 = result.liquid.density / _mol_m3
+        rho2 = result.vapor.density / _mol_m3
+        if rho1 <= 600 or rho2 <= 600:
+            return None
+        if np.allclose(x1, x2, atol=1e-4):
+            return None
+        return f, x1, x2
+
     results = []
     n = n_points
 
-    for i in range(0, n + 1):  # solute  (0 → include solvent/diluent binary)
-        for j in range(
-            0, n - i + 1
-        ):  # pseudo-solvent (0 → include solute/diluent binary)
-            k = n - i - j  # diluent (0 → include solute/solvent binary)
-            # Skip pure-component corners (at least two axes zero simultaneously)
-            if (i == 0) + (j == 0) + (k == 0) >= 2:
+    # --- interior scan ---
+    for i in range(1, n + 1):
+        for j in range(1, n - i + 1):
+            k = n - i - j
+            if k < 1:
                 continue
-
-            # 4-component feed: preserve solvent sub-ratio
-            x_solute = i / n
             x_solvent_total = j / n
-            x_solvent1 = solvent_ratio * x_solvent_total
-            x_solvent2 = (1.0 - solvent_ratio) * x_solvent_total
-            x_diluent = k / n
-
-            feed = np.array([x_solute, x_solvent1, x_solvent2, x_diluent])
-            # Numerical guard: ensure feed sums to 1
-            feed = feed / feed.sum()
-
-            try:
-                result = PhaseEquilibrium.tp_flash(
-                    eos, T, P, feed * si.MOL, max_iter=10000
-                )
-            except Exception:
+            feed = np.array([
+                i / n,
+                solvent_ratio * x_solvent_total,
+                (1.0 - solvent_ratio) * x_solvent_total,
+                k / n,
+            ])
+            hit = _flash_lle(feed)
+            if hit is None:
                 continue
+            f, x1, x2 = hit
+            results.append({
+                "feed_pseudo":   _to_pseudo_ternary(f),
+                "phase1_pseudo": _to_pseudo_ternary(x1),
+                "phase2_pseudo": _to_pseudo_ternary(x2),
+                "feed_4comp":    f,
+                "phase1_4comp":  x1,
+                "phase2_4comp":  x2,
+            })
 
-            # Extract compositions from both phases
-            x1 = np.array(result.liquid.molefracs)
-            x2 = np.array(result.vapor.molefracs)
-
-            # Accept as LLE only if both phases are liquid.
-            # density is molar (mol/m³); gas at 1 atm/25°C ≈ 41 mol/m³, liquids > 1000 mol/m³.
-            _mol_m3 = si.MOL / si.METER**3
-            rho1 = result.liquid.density / _mol_m3
-            rho2 = result.vapor.density / _mol_m3
-            if rho1 <= 600 or rho2 <= 600:
+    # --- binary edge scan: one representative per edge ---
+    # Edge 1: solute = 0  (pseudo-solvent / diluent binary)
+    # Edge 2: pseudo-solvent = 0  (solute / diluent binary)
+    # Edge 3: diluent = 0  (solute / pseudo-solvent binary)
+    edges = [
+        [np.array([0.0, solvent_ratio * (j/n), (1-solvent_ratio) * (j/n), (n-j)/n])
+         for j in range(1, n)],
+        [np.array([i/n, 0.0, 0.0, (n-i)/n])
+         for i in range(1, n)],
+        [np.array([i/n, solvent_ratio * ((n-i)/n), (1-solvent_ratio) * ((n-i)/n), 0.0])
+         for i in range(1, n)],
+    ]
+    for edge in edges:
+        for feed in edge:
+            hit = _flash_lle(feed)
+            if hit is None:
                 continue
-
-            # Reject trivial (identical) phases
-            if np.allclose(x1, x2, atol=1e-4):
-                continue
-
-            results.append(
-                {
-                    "feed_pseudo": _to_pseudo_ternary(feed),
-                    "phase1_pseudo": _to_pseudo_ternary(x1),
-                    "phase2_pseudo": _to_pseudo_ternary(x2),
-                    "feed_4comp": feed,
-                    "phase1_4comp": x1,
-                    "phase2_4comp": x2,
-                }
-            )
+            f, x1, x2 = hit
+            results.append({
+                "feed_pseudo":   _to_pseudo_ternary(f),
+                "phase1_pseudo": _to_pseudo_ternary(x1),
+                "phase2_pseudo": _to_pseudo_ternary(x2),
+                "feed_4comp":    f,
+                "phase1_4comp":  x1,
+                "phase2_4comp":  x2,
+            })
+            break  # one per edge is enough
 
     return results
