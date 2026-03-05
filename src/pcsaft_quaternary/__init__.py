@@ -30,6 +30,7 @@ def pseudoternary_lle(
     solvent_label=None,
     mass_basis=True,
     induced_association=False,
+    exp_tie_lines=None,
 ):
     """Compute and plot a pseudoternary LLE phase diagram using PC-SAFT.
 
@@ -76,6 +77,10 @@ def pseudoternary_lle(
         component except the diluent.  If a list of component names, apply
         only to those specific components.  The diluent's kappa_ab is used
         as the reference; epsilon_k_ab is forced to 0.0.
+    exp_tie_lines : list[dict] or None
+        Optional experimental tie-lines to overlay on the diagram. Each dict
+        must have keys ``phase1_pseudo`` and ``phase2_pseudo`` (3-tuples:
+        solute, pseudo-solvent, diluent) in mole fractions.
 
     Returns
     -------
@@ -148,7 +153,7 @@ def pseudoternary_lle(
     output = str(Path(output).with_suffix(".pdf"))
 
     # Plot
-    plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output)
+    plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output, exp_tie_lines=exp_tie_lines)
 
     return tie_line_data
 
@@ -165,6 +170,7 @@ def ternary_lle(
     n_points=51,
     mass_basis=True,
     induced_association=False,
+    exp_tie_lines=None,
 ):
     """Compute and plot a true ternary LLE phase diagram using PC-SAFT.
 
@@ -194,6 +200,9 @@ def ternary_lle(
         If ``False``, use mole fractions.
     induced_association : bool or list[str]
         Same semantics as in ``pseudoternary_lle``.
+    exp_tie_lines : list[dict] or None
+        Optional experimental tie-lines to overlay. Same semantics as in
+        ``pseudoternary_lle``.
 
     Returns
     -------
@@ -240,6 +249,6 @@ def ternary_lle(
         )
     output = str(Path(output).with_suffix(".pdf"))
 
-    plot_pseudoternary_lle(tie_line_data, component_names, T_K, P_Pa, output)
+    plot_pseudoternary_lle(tie_line_data, component_names, T_K, P_Pa, output, exp_tie_lines=exp_tie_lines)
 
     return tie_line_data

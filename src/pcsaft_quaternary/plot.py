@@ -4,10 +4,11 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import ternary
 
 
-def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path):
+def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, exp_tie_lines=None):
     """Generate and save a pseudoternary LLE phase diagram.
 
     Parameters
@@ -22,7 +23,11 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path):
     P_Pa : float
         Pressure in Pascal (used in title/print).
     output_path : str
-        Destination path for the PNG file (saved at 300 dpi).
+        Destination path for the PDF file.
+    exp_tie_lines : list[dict] or None
+        Optional experimental tie-lines to overlay. Each dict must have keys
+        ``phase1_pseudo`` and ``phase2_pseudo`` (3-tuples: solute, pseudo-solvent, diluent),
+        in mole fractions and using the same coordinate convention as ``tie_line_data``.
     """
     if not tie_line_data:
         print("No LLE tie-lines found — diagram not generated.")
@@ -104,6 +109,35 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path):
             f"phase1 = [{p1[0]:.4f}, {p1[1]:.4f}, {p1[2]:.4f}]  "
             f"phase2 = [{p2[0]:.4f}, {p2[1]:.4f}, {p2[2]:.4f}]"
         )
+
+    # --- experimental tie-lines ---
+    if exp_tie_lines:
+        for d in exp_tie_lines:
+            p1 = d["phase1_pseudo"]
+            p2 = d["phase2_pseudo"]
+            p1_plot = (p1[2], p1[0], p1[1])
+            p2_plot = (p2[2], p2[0], p2[1])
+            tax.line(
+                p1_plot, p2_plot,
+                linewidth=1.5,
+                color="red",
+                linestyle="-",
+                marker="o",
+                markersize=5,
+                markerfacecolor="red",
+                markeredgecolor="red",
+                zorder=10,
+            )
+
+    # --- legend ---
+    handles = [
+        Line2D([0], [0], color=_BINODAL, linewidth=2, label="PC-SAFT"),
+    ]
+    if exp_tie_lines:
+        handles.append(
+            Line2D([0], [0], color="red", linewidth=1.5, marker="o", markersize=5, label="Experimental")
+        )
+    ax.legend(handles=handles, loc="upper right", fontsize=11, framealpha=0.7)
 
     # --- axis labels ---
     # Convention: bottom = diluent (water), right = solute, left = pseudo-solvent (solvents)
