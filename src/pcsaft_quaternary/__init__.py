@@ -1,5 +1,8 @@
 """pcsaft-quaternary: pseudoternary LLE phase diagrams via PC-SAFT (feos)."""
 
+import warnings
+from pathlib import Path
+
 import si_units as si
 
 from .lle import (
@@ -57,8 +60,8 @@ def pseudoternary_lle(
     binary_json : str or None
         Optional path to a JSON file with binary interaction parameters (k_ij).
     output : str or None
-        Output PNG path.  If ``None`` an auto-generated name is used:
-        ``LLE_<solute>+<solvent1>+<solvent2>+<diluent>_T<T_C>C_P<P_bar>bar.png``
+        Output file base name (without extension).  If ``None`` an auto-generated
+        name is used.  The ``.pdf`` extension is always appended automatically.
     n_points : int
         Number of grid divisions along each pseudo-ternary axis (default 51).
         Higher values give a denser scan but take longer.
@@ -87,7 +90,7 @@ def pseudoternary_lle(
 
     Side effects
     ------------
-    Saves a 300 dpi PNG to ``output`` (or the auto-generated path).
+    Saves a PDF to ``output`` (or the auto-generated path).
     """
     # Convert molar ratio r = n1/n2 → mole fraction frac1 = r / (1 + r)
     frac1 = solvent_ratio / (1.0 + solvent_ratio)
@@ -134,8 +137,15 @@ def pseudoternary_lle(
         P_bar = P_Pa / 1e5
         output = (
             f"LLE_{solute}+{solvent1}+{solvent2}+{diluent}"
-            f"_T{T_C:.0f}C_P{P_bar:.3f}bar.png"
+            f"_T{T_C:.0f}C_P{P_bar:.3f}bar"
         )
+    elif Path(output).suffix:
+        warnings.warn(
+            f"output extension '{Path(output).suffix}' ignored; saving as .pdf",
+            UserWarning,
+            stacklevel=2,
+        )
+    output = str(Path(output).with_suffix(".pdf"))
 
     # Plot
     plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output)
@@ -175,8 +185,8 @@ def ternary_lle(
     binary_json : str or None
         Optional path to a JSON file with binary interaction parameters (k_ij).
     output : str or None
-        Output PNG path.  If ``None`` an auto-generated name is used:
-        ``LLE_<solute>+<solvent>+<diluent>_T<T_C>C_P<P_bar>bar.png``
+        Output file base name (without extension).  If ``None`` an auto-generated
+        name is used.  The ``.pdf`` extension is always appended automatically.
     n_points : int
         Number of grid divisions along each ternary axis (default 51).
     mass_basis : bool
@@ -198,7 +208,7 @@ def ternary_lle(
 
     Side effects
     ------------
-    Saves a 300 dpi PNG to ``output`` (or the auto-generated path).
+    Saves a PDF to ``output`` (or the auto-generated path).
     """
     T_K = float(T / si.KELVIN)
     P_Pa = float(P / si.PASCAL)
@@ -221,7 +231,14 @@ def ternary_lle(
     if output is None:
         T_C = T_K - 273.15
         P_bar = P_Pa / 1e5
-        output = f"LLE_{solute}+{solvent}+{diluent}_T{T_C:.0f}C_P{P_bar:.3f}bar.png"
+        output = f"LLE_{solute}+{solvent}+{diluent}_T{T_C:.0f}C_P{P_bar:.3f}bar"
+    elif Path(output).suffix:
+        warnings.warn(
+            f"output extension '{Path(output).suffix}' ignored; saving as .pdf",
+            UserWarning,
+            stacklevel=2,
+        )
+    output = str(Path(output).with_suffix(".pdf"))
 
     plot_pseudoternary_lle(tie_line_data, component_names, T_K, P_Pa, output)
 
