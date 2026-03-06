@@ -425,3 +425,205 @@ def scan_pseudoternary(eos, T, P, solvent_ratio, n_points=51):
             break  # one per edge is enough
 
     return results
+
+
+def suggest_experiments(
+    tie_line_data,
+    eos,
+    T,
+    P,
+    n=5,
+    target_phi=0.5,
+    mass_basis=True,
+    molar_masses=None,
+    output=None,
+    names_pseudo=None,
+):
+    """Return n feed compositions that are well-spread across the two-phase
+    envelope and yield roughly equal phase volumes.
+
+    Parameters
+    ----------
+    tie_line_data : list[dict]
+        Output of ``pseudoternary_lle`` / ``ternary_lle`` (the raw scan data,
+        which contains ``phase1_4comp`` / ``phase2_4comp`` keys for pseudoternary
+        systems, or ``phase1_3comp`` / ``phase2_3comp`` for true ternary systems).
+    eos : feos.EquationOfState
+        PC-SAFT EOS used to re-flash candidate feed compositions.
+    T : si_units.SIObject
+        Temperature (same value used for the original scan).
+    P : si_units.SIObject
+        Pressure (same value used for the original scan).
+    n : int
+        Number of experiment points to return (default 5).
+    target_phi : float
+        Target volumetric fraction of phase 1 (default 0.5).
+    mass_basis : bool
+        If True (default), return ``z_pseudo`` in mass fractions.
+        Requires ``molar_masses``.
+    molar_masses : np.ndarray or None
+        Molar masses in g/mol (required when ``mass_basis=True``).
+    output : str or None
+        If given, save a ternary diagram with the suggested points overlaid to
+        this path.  Requires ``names_pseudo``.
+    names_pseudo : list[str] or None
+        Axis labels ``[solute, pseudo_solvent, diluent]`` used when ``output``
+        is set.
+
+    Returns
+    -------
+    list[dict]
+        One dict per selected composition:
+
+        - ``z_pseudo``     : 3-tuple  pseudo-ternary coords (mass or mole frac)
+        - ``z_4comp``      : np.ndarray  feed mole fractions (4- or 3-component)
+        - ``phi1``         : float  actual volumetric fraction of phase 1
+        - ``alpha``        : float  position on tie-line (0 = phase2, 1 = phase1)
+        - ``phase1_4comp`` : np.ndarray  equilibrium phase 1 mole fractions
+        - ``phase2_4comp`` : np.ndarray  equilibrium phase 2 mole fractions
+    """
+    if not tie_line_data:
+        return []
+
+    # Detect pseudoternary vs true ternary
+    is_pseudo = "phase1_4comp" in tie_line_data[0]
+    p1_key = "phase1_4comp" if is_pseudo else "phase1_3comp"
+    p2_key = "phase2_4comp" if is_pseudo else "phase2_3comp"
+
+    # Drop binary-edge tie-lines: both phase endpoints near zero in the same
+    # pseudo-ternary component → the tie-line sits on an edge of the diagram.
+    _EDGE_TOL = 1e-2
+    interior_data = [
+        tl for tl in tie_line_data
+        if not any(
+            tl["phase1_pseudo"][k] < _EDGE_TOL and tl["phase2_pseudo"][k] < _EDGE_TOL
+            for k in range(3)
+        )
+    ]
+    if not interior_data:
+        interior_data = tie_line_data  # fallback: use all if none survive
+
+    _mol_m3 = si.MOL / si.METER**3
+
+    def _phase_volumes(p1, p2):
+        """Flash at the tie-line midpoint; return (v1, v2) as plain floats [m³]
+        read directly from the liquid/vapor State objects, or None on failure.
+
+        Because both phases carry 0.5 mol at the midpoint, v1 and v2 are
+        proportional to the molar volumes — their ratio is all that matters for
+        the equal-volume formula.
+        """
+        mid = 0.5 * p1 + 0.5 * p2
+        f = np.where(mid < 1e-9, 1e-9, mid)
+        f = f / f.sum()
+        try:
+            res = PhaseEquilibrium.tp_flash(eos, T, P, f * si.MOL, max_iter=100)
+        except Exception:
+            return None
+        # Liquid-phase guard via molar density (established threshold: > 600 mol/m³)
+        rho1 = float(res.liquid.density / _mol_m3)
+        rho2 = float(res.vapor.density / _mol_m3)
+        if rho1 <= 600 or rho2 <= 600:
+            return None
+        if np.allclose(
+            np.array(res.liquid.molefracs), np.array(res.vapor.molefracs), atol=1e-4
+        ):
+            return None
+        v1 = float(res.liquid.volume / si.METER**3)
+        v2 = float(res.vapor.volume / si.METER**3)
+        return v1, v2
+
+    # Minimum pseudo-ternary component in the feed to be considered "well inside"
+    _INTERIOR_TOL = 0.02
+
+    # Step 1: for each tie-line get phase volumes (one flash), then solve for the
+    # equal-volume alpha analytically.
+    #
+    # Because z = α·p1 + (1−α)·p2, the lever rule gives β = α exactly, so:
+    #   φ1(α) = (α·v1) / (α·v1 + (1−α)·v2)
+    # Setting φ1 = t and solving:
+    #   α = (t·v2) / ((1−t)·v1 + t·v2)
+    # v1, v2 need only be proportional to molar volumes (same moles at midpoint).
+    candidates = []
+    for tl in interior_data:
+        p1 = np.array(tl[p1_key])
+        p2 = np.array(tl[p2_key])
+        if np.allclose(p1, p2, atol=1e-4):
+            continue
+        vols = _phase_volumes(p1, p2)
+        if vols is None:
+            continue
+        v1, v2 = vols
+        t = target_phi
+        alpha = float(np.clip(
+            (t * v2) / ((1.0 - t) * v1 + t * v2),
+            0.01, 0.99,
+        ))
+        phi1 = (alpha * v1) / (alpha * v1 + (1.0 - alpha) * v2)
+        z = alpha * p1 + (1.0 - alpha) * p2
+
+        if is_pseudo:
+            if mass_basis and molar_masses is not None:
+                z_pseudo = _to_pseudo_ternary_mass(z, molar_masses)
+            else:
+                z_pseudo = _to_pseudo_ternary(z)
+        else:
+            if mass_basis and molar_masses is not None:
+                z_pseudo = _to_ternary_mass(z, molar_masses)
+            else:
+                z_pseudo = tuple(float(v) for v in z)
+
+        # Skip feeds where any pseudo-ternary component is near zero
+        if any(v < _INTERIOR_TOL for v in z_pseudo):
+            continue
+
+        tl_len = float(np.linalg.norm(p1 - p2))
+        candidates.append({
+            "z_pseudo": z_pseudo,
+            "z_4comp": z,
+            "phi1": phi1,
+            "alpha": alpha,
+            "phase1_4comp": p1,
+            "phase2_4comp": p2,
+            "_tl_len": tl_len,
+        })
+
+    if not candidates:
+        return []
+
+    n_select = min(n, len(candidates))
+
+    # Step 2: greedy farthest-point (maximin) sampling
+    seed_idx = max(range(len(candidates)), key=lambda i: candidates[i]["_tl_len"])
+    selected_indices = [seed_idx]
+    remaining_indices = [i for i in range(len(candidates)) if i != seed_idx]
+
+    while len(selected_indices) < n_select and remaining_indices:
+        sel_z = [candidates[i]["z_4comp"] for i in selected_indices]
+
+        def _min_dist(i):
+            z_i = candidates[i]["z_4comp"]
+            return min(float(np.linalg.norm(z_i - s)) for s in sel_z)
+
+        next_idx = max(remaining_indices, key=_min_dist)
+        selected_indices.append(next_idx)
+        remaining_indices.remove(next_idx)
+
+    # Build output, removing internal keys
+    result = []
+    for i in selected_indices:
+        c = {k: v for k, v in candidates[i].items() if not k.startswith("_")}
+        result.append(c)
+
+    if output is not None and names_pseudo is not None and tie_line_data:
+        from .plot import plot_pseudoternary_lle
+        T_K = float(T / si.KELVIN)
+        P_Pa = float(P / si.PASCAL)
+        from pathlib import Path as _Path
+        out_path = str(_Path(output).with_suffix(".pdf")) if not _Path(output).suffix else output
+        plot_pseudoternary_lle(
+            tie_line_data, names_pseudo, T_K, P_Pa, out_path,
+            suggested_points=result,
+        )
+
+    return result

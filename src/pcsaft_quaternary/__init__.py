@@ -11,6 +11,7 @@ from .lle import (
     build_eos,
     scan_pseudoternary,
     scan_ternary,
+    suggest_experiments,
 )
 from .plot import plot_pseudoternary_lle
 
@@ -31,6 +32,8 @@ def pseudoternary_lle(
     mass_basis=True,
     induced_association=False,
     exp_tie_lines=None,
+    suggest_n=0,
+    suggest_phi=0.5,
 ):
     """Compute and plot a pseudoternary LLE phase diagram using PC-SAFT.
 
@@ -81,17 +84,19 @@ def pseudoternary_lle(
         Optional experimental tie-lines to overlay on the diagram. Each dict
         must have keys ``phase1_pseudo`` and ``phase2_pseudo`` (3-tuples:
         solute, pseudo-solvent, diluent) in mole fractions.
+    suggest_n : int
+        If > 0, run ``suggest_experiments`` and return
+        ``(tie_line_data, suggestions)`` instead of just ``tie_line_data``.
+    suggest_phi : float
+        Target volumetric fraction of phase 1 for the suggested experiments
+        (default 0.5).
 
     Returns
     -------
-    list[dict]
-        One dict per detected LLE tie-line, each containing:
-
-        - ``feed_pseudo``   : 3-tuple (solute, pseudo-solvent, diluent) of feed
-        - ``phase1_pseudo`` : 3-tuple pseudo-ternary coords of phase 1
-        - ``phase2_pseudo`` : 3-tuple pseudo-ternary coords of phase 2
-        - ``phase1_4comp``  : np.ndarray of 4-component mole fractions for phase 1
-        - ``phase2_4comp``  : np.ndarray of 4-component mole fractions for phase 2
+    list[dict] or tuple[list[dict], list[dict]]
+        When ``suggest_n == 0``: one dict per detected LLE tie-line.
+        When ``suggest_n > 0``: ``(tie_line_data, suggestions)`` where
+        ``suggestions`` is the output of ``suggest_experiments``.
 
     Side effects
     ------------
@@ -152,8 +157,26 @@ def pseudoternary_lle(
         )
     output = str(Path(output).with_suffix(".pdf"))
 
-    # Plot
-    plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output, exp_tie_lines=exp_tie_lines)
+    # Compute suggestions before plotting so the points appear on the main diagram
+    suggestions = None
+    if suggest_n > 0:
+        suggestions = suggest_experiments(
+            tie_line_data, eos, T, P,
+            n=suggest_n,
+            target_phi=suggest_phi,
+            mass_basis=mass_basis,
+            molar_masses=molar_masses,
+        )
+
+    # Plot (suggested points overlaid when present)
+    plot_pseudoternary_lle(
+        tie_line_data, names_pseudo, T_K, P_Pa, output,
+        exp_tie_lines=exp_tie_lines,
+        suggested_points=suggestions,
+    )
+
+    if suggest_n > 0:
+        return tie_line_data, suggestions
 
     return tie_line_data
 
@@ -171,6 +194,8 @@ def ternary_lle(
     mass_basis=True,
     induced_association=False,
     exp_tie_lines=None,
+    suggest_n=0,
+    suggest_phi=0.5,
 ):
     """Compute and plot a true ternary LLE phase diagram using PC-SAFT.
 
@@ -203,17 +228,18 @@ def ternary_lle(
     exp_tie_lines : list[dict] or None
         Optional experimental tie-lines to overlay. Same semantics as in
         ``pseudoternary_lle``.
+    suggest_n : int
+        If > 0, run ``suggest_experiments`` and return
+        ``(tie_line_data, suggestions)`` instead of just ``tie_line_data``.
+    suggest_phi : float
+        Target volumetric fraction of phase 1 for the suggested experiments
+        (default 0.5).
 
     Returns
     -------
-    list[dict]
-        One dict per detected LLE tie-line, each containing:
-
-        - ``feed_pseudo``   : 3-tuple (solute, solvent, diluent) of feed
-        - ``phase1_pseudo`` : 3-tuple of phase 1
-        - ``phase2_pseudo`` : 3-tuple of phase 2
-        - ``phase1_3comp``  : np.ndarray of 3-component mole fractions for phase 1
-        - ``phase2_3comp``  : np.ndarray of 3-component mole fractions for phase 2
+    list[dict] or tuple[list[dict], list[dict]]
+        When ``suggest_n == 0``: one dict per detected LLE tie-line.
+        When ``suggest_n > 0``: ``(tie_line_data, suggestions)``.
 
     Side effects
     ------------
@@ -249,6 +275,23 @@ def ternary_lle(
         )
     output = str(Path(output).with_suffix(".pdf"))
 
-    plot_pseudoternary_lle(tie_line_data, component_names, T_K, P_Pa, output, exp_tie_lines=exp_tie_lines)
+    suggestions = None
+    if suggest_n > 0:
+        suggestions = suggest_experiments(
+            tie_line_data, eos, T, P,
+            n=suggest_n,
+            target_phi=suggest_phi,
+            mass_basis=mass_basis,
+            molar_masses=molar_masses,
+        )
+
+    plot_pseudoternary_lle(
+        tie_line_data, component_names, T_K, P_Pa, output,
+        exp_tie_lines=exp_tie_lines,
+        suggested_points=suggestions,
+    )
+
+    if suggest_n > 0:
+        return tie_line_data, suggestions
 
     return tie_line_data

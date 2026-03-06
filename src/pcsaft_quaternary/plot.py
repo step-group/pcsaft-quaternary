@@ -8,7 +8,7 @@ from matplotlib.lines import Line2D
 import ternary
 
 
-def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, exp_tie_lines=None):
+def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, exp_tie_lines=None, suggested_points=None):
     """Generate and save a pseudoternary LLE phase diagram.
 
     Parameters
@@ -28,9 +28,12 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, 
         Optional experimental tie-lines to overlay. Each dict must have keys
         ``phase1_pseudo`` and ``phase2_pseudo`` (3-tuples: solute, pseudo-solvent, diluent),
         in mole fractions and using the same coordinate convention as ``tie_line_data``.
+    suggested_points : list[dict] or None
+        Optional output of ``suggest_experiments``.  Each dict must contain
+        ``z_pseudo`` (3-tuple: solute, pseudo-solvent, diluent).  Points are
+        plotted as numbered filled circles.
     """
     if not tie_line_data:
-        print("No LLE tie-lines found — diagram not generated.")
         return
 
     # --- font / figure setup (mirrors ternary.py template) ---
@@ -86,11 +89,6 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, 
     n_show = min(7, len(sorted_tl))
     tl_indices = np.linspace(0, len(sorted_tl) - 1, n_show, dtype=int) if sorted_tl else []
 
-    print(
-        f"Tie-lines [{names_pseudo[0]} | {names_pseudo[1]} | {names_pseudo[2]}] "
-        f"at T = {T_K - 273.15:.2f} °C, P = {P_Pa / 1e5:.3f} bar"
-    )
-    print("-" * 60)
     for idx in tl_indices:
         p1 = sorted_tl[idx]["phase1_pseudo"]
         p2 = sorted_tl[idx]["phase2_pseudo"]
@@ -103,11 +101,6 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, 
             color=_TIELINE,
             linestyle=":",
             zorder=5,
-        )
-        print(
-            f"  Tie-line {idx:3d}: "
-            f"phase1 = [{p1[0]:.4f}, {p1[1]:.4f}, {p1[2]:.4f}]  "
-            f"phase2 = [{p2[0]:.4f}, {p2[1]:.4f}, {p2[2]:.4f}]"
         )
 
     # --- experimental tie-lines ---
@@ -129,6 +122,24 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, 
                 zorder=10,
             )
 
+    # --- suggested experiment points ---
+    _SUGGEST_COLOR = "#e67e00"  # orange
+    if suggested_points:
+        for k, sp in enumerate(suggested_points, 1):
+            z = sp["z_pseudo"]   # (solute, pseudo-solvent, diluent)
+            pt = (z[2], z[0], z[1])  # → (diluent, solute, pseudo-solvent) for tax
+            tax.plot([pt], marker="o", markersize=8, color=_SUGGEST_COLOR,
+                     markeredgecolor="black", markeredgewidth=0.6,
+                     linestyle="", zorder=15)
+            # Number label offset slightly toward the interior
+            tax.annotate(
+                str(k), pt,
+                fontsize=10, fontweight="bold", color=_SUGGEST_COLOR,
+                ha="center", va="bottom",
+                xytext=(0, 7), textcoords="offset points",
+                zorder=16,
+            )
+
     # --- legend ---
     handles = [
         Line2D([0], [0], color=_BINODAL, linewidth=2, label="PC-SAFT"),
@@ -136,6 +147,12 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, 
     if exp_tie_lines:
         handles.append(
             Line2D([0], [0], color="red", linewidth=1.5, marker="o", markersize=5, label="Experimental")
+        )
+    if suggested_points:
+        handles.append(
+            Line2D([0], [0], color=_SUGGEST_COLOR, marker="o", markersize=6,
+                   linewidth=0, markeredgecolor="black", markeredgewidth=0.6,
+                   label="Suggested")
         )
     ax.legend(handles=handles, loc="upper right", fontsize=11, framealpha=0.7)
 
@@ -148,4 +165,4 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, 
     plt.axis("off")
     plt.savefig(output_path, bbox_inches="tight", dpi=300)
     plt.close(fig)
-    print(f"\nDiagram saved to: {output_path}")
+    print(f"Diagram saved to: {output_path}")
