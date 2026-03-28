@@ -68,17 +68,17 @@ wheels = [
 
 [[package]]
 name = "feos"
-version = "0.9.3"
+version = "0.9.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "si-units" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/7c/02aa7e1ce06f94fe32344c52a6cce1faab5cb7a9cb1b9ef422ea761e9dd3/feos-0.9.3-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:bfbfd935b1da9fb238c425fac774a81feca5594a90f7478f33672fb4d5ed4ecc", size = 17831023, upload-time = "2026-01-26T16:10:11.681Z" },
-    { url = "https://files.pythonhosted.org/packages/24/22/76d9acda1e63c07149bef3f057fb0d44d6975b4d7d9e98add64da1bc58ef/feos-0.9.3-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:baccb42f2da24179287b72afb0859f526d3d4305bfbfc702ccb50e5496ea936c", size = 14128699, upload-time = "2026-01-26T16:10:14.384Z" },
-    { url = "https://files.pythonhosted.org/packages/35/ba/7eb2c0450e241a7cc1264c78960cc1c6bec4179732505ff3b76846241443/feos-0.9.3-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:29b12c70672074c59f3bbef489a44349e2a74e0ee8f51e312bb0fb562d4581e1", size = 18176828, upload-time = "2026-01-26T16:10:16.787Z" },
-    { url = "https://files.pythonhosted.org/packages/18/f0/1380b93c65a045e0040e75905b28a900c48999f249d86db5f1e0de44c984/feos-0.9.3-cp310-abi3-win32.whl", hash = "sha256:9e3e998bafc9a8ae9a13e96de5b5e4cb712fa0e41aa0399c3ef6213444eb8166", size = 18592953, upload-time = "2026-01-26T16:10:19.84Z" },
-    { url = "https://files.pythonhosted.org/packages/50/11/fe952651ef1a2b4d17314f5728fc832b84271afad54340f7f69f925777ad/feos-0.9.3-cp310-abi3-win_amd64.whl", hash = "sha256:39edbbd7676e54de23084c7efd32736584bb8eb72e7025c9773686045b02fc96", size = 18948854, upload-time = "2026-01-26T16:10:22.231Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/d6/59a6ecca6a0de5a8981408406bca28d6f89b513d1c8406ec6b70d13e52c1/feos-0.9.4-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:18293ba6286bf4b2059bed6e53a163bfc1e6a1d65f7aee6834319adc03cb656e", size = 17881072, upload-time = "2026-03-09T14:06:24.38Z" },
+    { url = "https://files.pythonhosted.org/packages/df/99/d23273ea0857a0289fd11dd57015d7414453fc608e909f31e42b6dba645e/feos-0.9.4-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:d906c7a90a4a33d403cd9ef1b1aa5a988a22e9ee77c4ca4abda11f798613f4b0", size = 14271367, upload-time = "2026-03-09T14:06:27.016Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/86/ee0991a7c6619514b258ea772ecadb6f82c65c8191494cf854bea8916f4c/feos-0.9.4-cp310-abi3-manylinux_2_35_x86_64.whl", hash = "sha256:7a115066072eec66e214395828c45757dbd287b6a59b51eeecd76fe75fa204ab", size = 18238827, upload-time = "2026-03-09T14:06:29.353Z" },
+    { url = "https://files.pythonhosted.org/packages/16/1c/0fa3e8a24f5237dbf4280f6fe2b04494879d58482cadedb60a168b7227ff/feos-0.9.4-cp310-abi3-win32.whl", hash = "sha256:8a53bcfe045360692d300d51da0dcb1d6448840ba64b9edd5b4ac445de2295cd", size = 18697282, upload-time = "2026-03-09T14:06:31.906Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/8c/c3d80cdba16a09cbcb6ee8514a37b7bd5b3ad1f40a378458417eb5d0681e/feos-0.9.4-cp310-abi3-win_amd64.whl", hash = "sha256:41b66ba21020ef0d84916cc148ca0d1963de53c84ad60823044c8d441603338e", size = 19151419, upload-time = "2026-03-09T14:06:35.102Z" },
 ]
 
 [[package]]
@@ -290,7 +290,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "feos", specifier = "==0.9.3" },
+    { name = "feos", specifier = ">=0.9.4" },
     { name = "python-ternary", specifier = ">=1.0.8" },
 ]
 

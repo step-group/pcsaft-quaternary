@@ -1,6 +1,8 @@
 """Core PC-SAFT flash calculation logic for pseudoternary LLE scanning."""
 
 import json
+from dataclasses import dataclass
+from typing import Any, Iterator
 
 import numpy as np
 import si_units as si
@@ -14,7 +16,58 @@ from feos import (
 )
 
 
-def _components_in_file(path, component_names):
+@dataclass
+class SuggestedExperiment:
+    """A single suggested feed composition for a lab experiment."""
+    z_pseudo: tuple[float, float, float]   # pseudo-ternary coords (mass or mole frac)
+    z_4comp: np.ndarray                    # feed mole fractions (4- or 3-component)
+    phi1: float                            # actual volumetric fraction of phase 1
+    alpha: float                           # position on tie-line (0 = phase2, 1 = phase1)
+    phase1_4comp: np.ndarray               # equilibrium phase 1 mole fractions
+    phase2_4comp: np.ndarray               # equilibrium phase 2 mole fractions
+
+
+class SuggestedExperiments:
+    """Collection of suggested feed compositions with built-in table display.
+
+    Behaves like a list: supports iteration, indexing, and ``len()``.
+    ``print(suggestions)`` renders a formatted composition table.
+    """
+
+    def __init__(self, experiments: list[SuggestedExperiment]) -> None:
+        self._experiments = experiments
+
+    def __len__(self) -> int:
+        return len(self._experiments)
+
+    def __iter__(self) -> Iterator[SuggestedExperiment]:
+        return iter(self._experiments)
+
+    def __getitem__(self, idx: int) -> SuggestedExperiment:
+        return self._experiments[idx]
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __str__(self) -> str:
+        if not self._experiments:
+            return "SuggestedExperiments(empty)"
+        header = (
+            f"{'#':>2}  {'comp1 (mass)':>12}  {'comp2 (mass)':>12}  "
+            f"{'comp3 (mass)':>12}  {'phi1':>6}  {'alpha':>6}"
+        )
+        sep = "-" * len(header)
+        lines = [header, sep]
+        for k, s in enumerate(self._experiments, 1):
+            w = s.z_pseudo
+            lines.append(
+                f"{k:>2}  {w[0]:>12.4f}  {w[1]:>12.4f}  {w[2]:>12.4f}"
+                f"  {s.phi1:>6.3f}  {s.alpha:>6.3f}"
+            )
+        return "\n".join(lines)
+
+
+def _components_in_file(path: str, component_names: list[str]) -> list[str]:
     """Return the subset of component_names whose 'name' identifier appears in a JSON file."""
     with open(path) as f:
         data = json.load(f)
@@ -22,7 +75,7 @@ def _components_in_file(path, component_names):
     return [c for c in component_names if c in names_in_file]
 
 
-def _is_non_associating(record):
+def _is_non_associating(record: PureRecord) -> bool:
     """Return True if a PureRecord has no site with both na >= 1 and nb >= 1."""
     for site in record.association_sites:
         if site.get("na", 0.0) >= 1.0 and site.get("nb", 0.0) >= 1.0:
@@ -30,14 +83,18 @@ def _is_non_associating(record):
     return True
 
 
-def _load_binary_records(binary_json):
+def _load_binary_records(binary_json: str) -> list[BinaryRecord]:
     """Load a binary-interaction JSON file into a list of BinaryRecord objects."""
     with open(binary_json) as f:
         data = json.load(f)
     return [BinaryRecord.from_json_str(json.dumps(entry)) for entry in data]
 
 
-def _apply_induced_association(pure_records, diluent_idx, target_names):
+def _apply_induced_association(
+    pure_records: list[PureRecord],
+    diluent_idx: int,
+    target_names: set[str],
+) -> list[PureRecord]:
     """Return a new list of PureRecords with induced association applied.
 
     For each component in *target_names* that is currently non-associating
@@ -98,7 +155,12 @@ def _apply_induced_association(pure_records, diluent_idx, target_names):
     return modified
 
 
-def build_eos(pure_json, component_names, binary_json=None, induced_association=False):
+def build_eos(
+    pure_json: str | list[str],
+    component_names: list[str],
+    binary_json: str | None = None,
+    induced_association: bool | list[str] = False,
+) -> tuple[EquationOfState, np.ndarray]:
     """Load PC-SAFT parameters from JSON file(s) and return a feos EOS object.
 
     Parameters
@@ -166,7 +228,7 @@ def build_eos(pure_json, component_names, binary_json=None, induced_association=
     return EquationOfState.pcsaft(params), molar_masses
 
 
-def _to_pseudo_ternary(x4):
+def _to_pseudo_ternary(x4: np.ndarray) -> tuple[float, float, float]:
     """Project 4-component mole fraction vector to pseudo-ternary coordinates.
 
     Component ordering: [solute, solvent1, solvent2, diluent]
@@ -175,7 +237,13 @@ def _to_pseudo_ternary(x4):
     return (float(x4[0]), float(x4[1]) + float(x4[2]), float(x4[3]))
 
 
-def _to_pseudo_ternary_mass(x4, M):
+def _to_4comp_mass(x4: np.ndarray, M: np.ndarray) -> np.ndarray:
+    """Convert 4-component mole fractions to 4-component mass fractions."""
+    w = np.asarray(x4, dtype=float) * np.asarray(M, dtype=float)
+    return w / w.sum()
+
+
+def _to_pseudo_ternary_mass(x4: np.ndarray, M: np.ndarray) -> tuple[float, float, float]:
     """Project 4-component mole fractions to pseudo-ternary mass-fraction coordinates.
 
     Parameters
@@ -195,7 +263,7 @@ def _to_pseudo_ternary_mass(x4, M):
     return (float(w[0]), float(w[1]) + float(w[2]), float(w[3]))
 
 
-def _to_ternary_mass(x3, M):
+def _to_ternary_mass(x3: np.ndarray, M: np.ndarray) -> tuple[float, float, float]:
     """Convert 3-component mole fractions to mass fractions.
 
     Parameters
@@ -215,7 +283,12 @@ def _to_ternary_mass(x3, M):
     return (float(w[0]), float(w[1]), float(w[2]))
 
 
-def scan_ternary(eos, T, P, n_points=51):
+def scan_ternary(
+    eos: EquationOfState,
+    T: Any,
+    P: Any,
+    n_points: int = 51,
+) -> list[dict]:
     """Scan a triangular grid of feed compositions and detect LLE tie-lines
     for a true 3-component system.
 
@@ -317,7 +390,13 @@ def scan_ternary(eos, T, P, n_points=51):
     return results
 
 
-def scan_pseudoternary(eos, T, P, solvent_ratio, n_points=51):
+def scan_pseudoternary(
+    eos: EquationOfState,
+    T: Any,
+    P: Any,
+    solvent_ratio: float,
+    n_points: int = 51,
+) -> list[dict]:
     """Scan a triangular grid of feed compositions and detect LLE tie-lines.
 
     The four components are assumed to be in the order used when building the EOS:
@@ -428,17 +507,17 @@ def scan_pseudoternary(eos, T, P, solvent_ratio, n_points=51):
 
 
 def suggest_experiments(
-    tie_line_data,
-    eos,
-    T,
-    P,
-    n=5,
-    target_phi=0.5,
-    mass_basis=True,
-    molar_masses=None,
-    output=None,
-    names_pseudo=None,
-):
+    tie_line_data: list[dict],
+    eos: EquationOfState,
+    T: Any,
+    P: Any,
+    n: int = 5,
+    target_phi: float = 0.5,
+    mass_basis: bool = True,
+    molar_masses: np.ndarray | None = None,
+    output: str | None = None,
+    names_pseudo: list[str] | None = None,
+) -> SuggestedExperiments:
     """Return n feed compositions that are well-spread across the two-phase
     envelope and yield roughly equal phase volumes.
 
@@ -579,13 +658,16 @@ def suggest_experiments(
 
         tl_len = float(np.linalg.norm(p1 - p2))
         candidates.append({
-            "z_pseudo": z_pseudo,
-            "z_4comp": z,
-            "phi1": phi1,
-            "alpha": alpha,
-            "phase1_4comp": p1,
-            "phase2_4comp": p2,
+            "exp": SuggestedExperiment(
+                z_pseudo=z_pseudo,
+                z_4comp=z,
+                phi1=phi1,
+                alpha=alpha,
+                phase1_4comp=p1,
+                phase2_4comp=p2,
+            ),
             "_tl_len": tl_len,
+            "_z": z,
         })
 
     if not candidates:
@@ -599,31 +681,28 @@ def suggest_experiments(
     remaining_indices = [i for i in range(len(candidates)) if i != seed_idx]
 
     while len(selected_indices) < n_select and remaining_indices:
-        sel_z = [candidates[i]["z_4comp"] for i in selected_indices]
+        sel_z = [candidates[i]["_z"] for i in selected_indices]
 
         def _min_dist(i):
-            z_i = candidates[i]["z_4comp"]
-            return min(float(np.linalg.norm(z_i - s)) for s in sel_z)
+            return min(float(np.linalg.norm(candidates[i]["_z"] - s)) for s in sel_z)
 
         next_idx = max(remaining_indices, key=_min_dist)
         selected_indices.append(next_idx)
         remaining_indices.remove(next_idx)
 
-    # Build output, removing internal keys
-    result = []
-    for i in selected_indices:
-        c = {k: v for k, v in candidates[i].items() if not k.startswith("_")}
-        result.append(c)
+    result = [candidates[i]["exp"] for i in selected_indices]
+
+    suggestions = SuggestedExperiments(result)
 
     if output is not None and names_pseudo is not None and tie_line_data:
         from .plot import plot_pseudoternary_lle
+        from pathlib import Path as _Path
         T_K = float(T / si.KELVIN)
         P_Pa = float(P / si.PASCAL)
-        from pathlib import Path as _Path
         out_path = str(_Path(output).with_suffix(".pdf")) if not _Path(output).suffix else output
         plot_pseudoternary_lle(
             tie_line_data, names_pseudo, T_K, P_Pa, out_path,
-            suggested_points=result,
+            suggested_points=suggestions,
         )
 
-    return result
+    return suggestions

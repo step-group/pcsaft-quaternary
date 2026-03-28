@@ -1,40 +1,46 @@
 """pcsaft-quaternary: pseudoternary LLE phase diagrams via PC-SAFT (feos)."""
 
+import csv
 import warnings
 from pathlib import Path
+from typing import Any
 
 import si_units as si
 
 from .lle import (
+    _to_4comp_mass,
     _to_pseudo_ternary_mass,
     _to_ternary_mass,
     build_eos,
     scan_pseudoternary,
     scan_ternary,
     suggest_experiments,
+    SuggestedExperiment,
+    SuggestedExperiments,
 )
 from .plot import plot_pseudoternary_lle
 
 
 def pseudoternary_lle(
-    pure_json,
-    T,
-    P,
-    solute,
-    solvent1,
-    solvent2,
-    diluent,
-    solvent_ratio,
-    binary_json=None,
-    output=None,
-    n_points=51,
-    solvent_label=None,
-    mass_basis=True,
-    induced_association=True,
-    exp_tie_lines=None,
-    suggest_n=0,
-    suggest_phi=0.5,
-):
+    pure_json: str | list[str],
+    T: Any,
+    P: Any,
+    solute: str,
+    solvent1: str,
+    solvent2: str,
+    diluent: str,
+    solvent_ratio: float,
+    binary_json: str | None = None,
+    output: str | None = None,
+    n_points: int = 51,
+    solvent_label: str | None = None,
+    mass_basis: bool = True,
+    induced_association: bool | list[str] = True,
+    exp_tie_lines: list[dict] | None = None,
+    suggest_n: int = 0,
+    suggest_phi: float = 0.5,
+    csv_output: str | None = None,
+) -> list[dict] | tuple[list[dict], SuggestedExperiments]:
     """Compute and plot a pseudoternary LLE phase diagram using PC-SAFT.
 
     Two of the four components (``solvent1`` and ``solvent2``) are combined into a
@@ -175,6 +181,35 @@ def pseudoternary_lle(
         suggested_points=suggestions,
     )
 
+    # Write CSV if requested
+    if csv_output is not None:
+        csv_path = str(Path(csv_output).with_suffix(".csv"))
+        names = [solute, solvent1, solvent2, diluent]
+        fieldnames = (
+            ["tie_line"]
+            + [f"phase1_w_{n}" for n in names]
+            + [f"phase2_w_{n}" for n in names]
+        )
+        # Select 5 equally spaced tie-lines sorted by solute content in phase 1
+        sorted_tl = sorted(tie_line_data, key=lambda d: float(d["phase1_4comp"][0]))
+        n_tl = len(sorted_tl)
+        if n_tl <= 5:
+            selected = sorted_tl
+        else:
+            indices = [round(i * (n_tl - 1) / 4) for i in range(5)]
+            selected = [sorted_tl[i] for i in indices]
+        with open(csv_path, "w", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=fieldnames)
+            writer.writeheader()
+            for k, d in enumerate(selected, 1):
+                w1 = _to_4comp_mass(d["phase1_4comp"], molar_masses)
+                w2 = _to_4comp_mass(d["phase2_4comp"], molar_masses)
+                row = {"tie_line": k}
+                for i, n in enumerate(names):
+                    row[f"phase1_w_{n}"] = float(w1[i])
+                    row[f"phase2_w_{n}"] = float(w2[i])
+                writer.writerow(row)
+
     if suggest_n > 0:
         return tie_line_data, suggestions
 
@@ -182,21 +217,21 @@ def pseudoternary_lle(
 
 
 def ternary_lle(
-    pure_json,
-    T,
-    P,
-    solute,
-    solvent,
-    diluent,
-    binary_json=None,
-    output=None,
-    n_points=51,
-    mass_basis=True,
-    induced_association=True,
-    exp_tie_lines=None,
-    suggest_n=0,
-    suggest_phi=0.5,
-):
+    pure_json: str | list[str],
+    T: Any,
+    P: Any,
+    solute: str,
+    solvent: str,
+    diluent: str,
+    binary_json: str | None = None,
+    output: str | None = None,
+    n_points: int = 51,
+    mass_basis: bool = True,
+    induced_association: bool | list[str] = True,
+    exp_tie_lines: list[dict] | None = None,
+    suggest_n: int = 0,
+    suggest_phi: float = 0.5,
+) -> list[dict] | tuple[list[dict], SuggestedExperiments]:
     """Compute and plot a true ternary LLE phase diagram using PC-SAFT.
 
     Parameters

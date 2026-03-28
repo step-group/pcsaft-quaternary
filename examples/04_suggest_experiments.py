@@ -34,12 +34,4 @@ tie_lines, suggestions = pseudoternary_lle(
 )
 
 print(f"Tie-lines found: {len(tie_lines)}")
-print(
-    f"\n{'#':>2}  {'solute':>8}  {'pseudo-solv':>12}  {'diluent':>8}  {'phi1':>6}  {'alpha':>6}"
-)
-print("-" * 58)
-for k, s in enumerate(suggestions, 1):
-    w = s["z_pseudo"]
-    print(
-        f"{k:>2}  {w[0]:>8.4f}  {w[1]:>12.4f}  {w[2]:>8.4f}  {s['phi1']:>6.3f}  {s['alpha']:>6.3f}"
-    )
+print(suggestions)

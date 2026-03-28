@@ -7,7 +7,7 @@ requires-python = ">=3.13"
 license = "MIT AND (BSD-2-Clause OR Apache-2.0)"
 authors = [{ name = "Maximilian Fleckenstein", email = "maximilianfv@uc.cl" }]
 dependencies = [
-  "feos==0.9.3",
+  "feos>=0.9.4",
   "python-ternary>=1.0.8",
 ]
 

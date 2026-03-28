@@ -126,7 +126,7 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, 
     _SUGGEST_COLOR = "#e67e00"  # orange
     if suggested_points:
         for k, sp in enumerate(suggested_points, 1):
-            z = sp["z_pseudo"]   # (solute, pseudo-solvent, diluent)
+            z = sp.z_pseudo   # (solute, pseudo-solvent, diluent)
             pt = (z[2], z[0], z[1])  # → (diluent, solute, pseudo-solvent) for tax
             tax.plot([pt], marker="o", markersize=8, color=_SUGGEST_COLOR,
                      markeredgecolor="black", markeredgewidth=0.6,
