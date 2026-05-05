@@ -1,0 +1,152 @@
+[
+  {
+    "identifier": {
+      "cas": "111-27-3",
+      "name": "1-hexanol",
+      "iupac_name": "hexan-1-ol",
+      "smiles": "CCCCCCO",
+      "inchi": "InChI=1S/C6H14O/c1-2-3-4-5-6-7/h7H,2-6H2,1H3",
+      "formula": "C6H14O"
+    },
+    "molarweight": 102.177,
+    "m": 3.3312,
+    "sigma": 3.7483,
+    "epsilon_k": 270.86,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 1.0,
+        "kappa_ab": 0.002566,
+        "epsilon_k_ab": 2778.9
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "111-87-5",
+      "name": "1-octanol",
+      "iupac_name": "octan-1-ol",
+      "smiles": "CCCCCCCCO",
+      "inchi": "InChI=1S/C8H18O/c1-2-3-4-5-6-7-8-9/h9H,2-8H2,1H3",
+      "formula": "C8H18O"
+    },
+    "molarweight": 130.23,
+    "m": 3.756170603370876,
+    "sigma": 3.9166248961586523,
+    "epsilon_k": 277.551825077224,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 1.0,
+        "kappa_ab": 0.002455159263819037,
+        "epsilon_k_ab": 2896.8658557857257
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "75-85-4",
+      "name": "2-methyl-2-butanol",
+      "iupac_name": "2-methylbutan-2-ol",
+      "smiles": "CCC(C)(C)O",
+      "inchi": "InChI=1S/C5H12O/c1-4-5(2,3)6/h6H,4H2,1-3H3",
+      "formula": "C5H12O"
+    },
+    "molarweight": 88.15,
+    "m": 3.2474299521929018,
+    "sigma": 3.5703709996118946,
+    "epsilon_k": 233.93575409238898,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 1.0,
+        "kappa_ab": 0.005937937341620016,
+        "epsilon_k_ab": 2308.8664194223875
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "115-18-4",
+      "name": "2-methyl-3-buten-2-ol",
+      "iupac_name": "2-methylbut-3-en-2-ol",
+      "smiles": "CC(C)(C=C)O",
+      "inchi": "InChI=1S/C5H10O/c1-4-5(2,3)6/h4,6H,1H2,2-3H3",
+      "formula": "C5H10O"
+    },
+    "molarweight": 86.13,
+    "m": 3.1057391279492905,
+    "sigma": 3.498368461999279,
+    "epsilon_k": 180.07990439852446,
+    "association_sites": [
+      {
+        "na": 1.0,
+        "nb": 1.0,
+        "kappa_ab": 0.07748302155082505,
+        "epsilon_k_ab": 2441.104605173193
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "111-13-7",
+      "name": "2-octanone",
+      "iupac_name": "octan-2-one",
+      "smiles": "CCCCCCC(=O)C",
+      "inchi": "InChI=1S/C8H16O/c1-3-4-5-6-7-8(2)9/h3-7H2,1-2H3",
+      "formula": "C8H16O"
+    },
+    "molarweight": 128.21,
+    "m": 4.497072426059015,
+    "sigma": 3.6140868617773747,
+    "epsilon_k": 249.2768610333436,
+    "mu": 3.259698759405352,
+    "association_sites": [
+      {
+        "na": 0.0,
+        "nb": 1.0
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "108-10-1",
+      "name": "mibk",
+      "iupac_name": "4-methylpentan-2-one",
+      "smiles": "CC(C)CC(=O)C",
+      "inchi": "InChI=1S/C6H12O/c1-5(2)4-6(3)7/h5H,4H2,1-3H3",
+      "formula": "C6H12O"
+    },
+    "molarweight": 100.16,
+    "m": 3.48437342154964,
+    "sigma": 3.6257577467782403,
+    "epsilon_k": 242.15248321336352,
+    "mu": 3.5746933350816996,
+    "association_sites": [
+      {
+        "na": 0.0,
+        "nb": 1.0
+      }
+    ]
+  },
+  {
+    "identifier": {
+      "cas": "79-77-6",
+      "name": "beta-ionone",
+      "iupac_name": "(E)-4-(2,6,6-trimethylcyclohexen-1-yl)but-3-en-2-one",
+      "smiles": "CC1=C(C(CCC1)(C)C)/C=C/C(=O)C",
+      "inchi": "InChI=1S/C13H20O/c1-10-6-5-9-13(3,4)12(10)8-7-11(2)14/h7-8H,5-6,9H2,1-4H3/b8-7+",
+      "formula": "C13H20O"
+    },
+    "molarweight": 192.3,
+    "m": 6.235618095468178,
+    "sigma": 3.5592089171059897,
+    "epsilon_k": 252.93010198830905,
+    "association_sites": [
+      {
+        "na": 0.0,
+        "nb": 1.0
+      }
+    ]
+  }
+]

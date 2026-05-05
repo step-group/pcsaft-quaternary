@@ -12,6 +12,7 @@ from .lle import (
     _to_pseudo_ternary_mass,
     _to_ternary_mass,
     build_eos,
+    flash_midpoints,
     scan_pseudoternary,
     scan_ternary,
     suggest_experiments,
@@ -40,7 +41,9 @@ def pseudoternary_lle(
     suggest_n: int = 0,
     suggest_phi: float = 0.5,
     csv_output: str | None = None,
-) -> list[dict] | tuple[list[dict], SuggestedExperiments]:
+    flash_exp_midpoints: bool = False,
+    model_at_exp_csv: str | None = None,
+) -> list[dict] | tuple[list[dict], ...]:
     """Compute and plot a pseudoternary LLE phase diagram using PC-SAFT.
 
     Two of the four components (``solvent1`` and ``solvent2``) are combined into a
@@ -89,20 +92,34 @@ def pseudoternary_lle(
     exp_tie_lines : list[dict] or None
         Optional experimental tie-lines to overlay on the diagram. Each dict
         must have keys ``phase1_pseudo`` and ``phase2_pseudo`` (3-tuples:
-        solute, pseudo-solvent, diluent) in mole fractions.
+        solute, pseudo-solvent, diluent).  Basis must match ``mass_basis``.
     suggest_n : int
-        If > 0, run ``suggest_experiments`` and return
-        ``(tie_line_data, suggestions)`` instead of just ``tie_line_data``.
+        If > 0, run ``suggest_experiments`` and include the result in the
+        return value.
     suggest_phi : float
         Target volumetric fraction of phase 1 for the suggested experiments
         (default 0.5).
+    flash_exp_midpoints : bool
+        If ``True`` (and ``exp_tie_lines`` is given), flash the midpoint of
+        each experimental tie-line through the EOS and return the
+        model-predicted phase compositions as ``model_at_exp``.
+    model_at_exp_csv : str or None
+        If given (and ``flash_exp_midpoints=True``), write a CSV of the
+        model-predicted phase compositions at each experimental midpoint.
+        Columns: ``exp_index``, ``phase1_w_<comp>``, ``phase2_w_<comp>``
+        for all four components (mass fractions).  ``.csv`` is auto-appended.
 
     Returns
     -------
-    list[dict] or tuple[list[dict], list[dict]]
-        When ``suggest_n == 0``: one dict per detected LLE tie-line.
-        When ``suggest_n > 0``: ``(tie_line_data, suggestions)`` where
-        ``suggestions`` is the output of ``suggest_experiments``.
+    Depending on active flags:
+
+    - ``(flash_exp_midpoints=False, suggest_n=0)`` → ``tie_line_data``
+    - ``(flash_exp_midpoints=False, suggest_n>0)`` → ``(tie_line_data, suggestions)``
+    - ``(flash_exp_midpoints=True,  suggest_n=0)`` → ``(tie_line_data, model_at_exp)``
+    - ``(flash_exp_midpoints=True,  suggest_n>0)`` → ``(tie_line_data, suggestions, model_at_exp)``
+
+    ``model_at_exp`` is a list of dicts with the same keys as ``tie_line_data``
+    plus ``'exp_index'`` (original index in ``exp_tie_lines``).
 
     Side effects
     ------------
@@ -181,7 +198,7 @@ def pseudoternary_lle(
         suggested_points=suggestions,
     )
 
-    # Write CSV if requested
+    # Write scan CSV if requested
     if csv_output is not None:
         csv_path = str(Path(csv_output).with_suffix(".csv"))
         names = [solute, solvent1, solvent2, diluent]
@@ -210,9 +227,51 @@ def pseudoternary_lle(
                     row[f"phase2_w_{n}"] = float(w2[i])
                 writer.writerow(row)
 
+    # Flash experimental midpoints through the EOS
+    model_at_exp = []
+    if flash_exp_midpoints:
+        if exp_tie_lines:
+            model_at_exp = flash_midpoints(
+                eos, T, P, exp_tie_lines,
+                frac1=frac1,
+                molar_masses=molar_masses,
+                mass_basis=mass_basis,
+                is_pseudo=True,
+            )
+        else:
+            warnings.warn(
+                "flash_exp_midpoints=True but exp_tie_lines is None — nothing to flash.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+    # Write model-at-exp CSV if requested
+    if model_at_exp_csv is not None and flash_exp_midpoints:
+        mae_path = str(Path(model_at_exp_csv).with_suffix(".csv"))
+        names = [solute, solvent1, solvent2, diluent]
+        fieldnames = (
+            ["exp_index"]
+            + [f"phase1_w_{n}" for n in names]
+            + [f"phase2_w_{n}" for n in names]
+        )
+        with open(mae_path, "w", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=fieldnames)
+            writer.writeheader()
+            for d in model_at_exp:
+                w1 = _to_4comp_mass(d["phase1_4comp"], molar_masses)
+                w2 = _to_4comp_mass(d["phase2_4comp"], molar_masses)
+                row = {"exp_index": d["exp_index"]}
+                for i, n in enumerate(names):
+                    row[f"phase1_w_{n}"] = float(w1[i])
+                    row[f"phase2_w_{n}"] = float(w2[i])
+                writer.writerow(row)
+
+    if flash_exp_midpoints and suggest_n > 0:
+        return tie_line_data, suggestions, model_at_exp
+    if flash_exp_midpoints:
+        return tie_line_data, model_at_exp
     if suggest_n > 0:
         return tie_line_data, suggestions
-
     return tie_line_data
 
 
@@ -231,7 +290,9 @@ def ternary_lle(
     exp_tie_lines: list[dict] | None = None,
     suggest_n: int = 0,
     suggest_phi: float = 0.5,
-) -> list[dict] | tuple[list[dict], SuggestedExperiments]:
+    flash_exp_midpoints: bool = False,
+    model_at_exp_csv: str | None = None,
+) -> list[dict] | tuple[list[dict], ...]:
     """Compute and plot a true ternary LLE phase diagram using PC-SAFT.
 
     Parameters
@@ -264,17 +325,24 @@ def ternary_lle(
         Optional experimental tie-lines to overlay. Same semantics as in
         ``pseudoternary_lle``.
     suggest_n : int
-        If > 0, run ``suggest_experiments`` and return
-        ``(tie_line_data, suggestions)`` instead of just ``tie_line_data``.
+        If > 0, run ``suggest_experiments`` and include the result in the
+        return value.
     suggest_phi : float
         Target volumetric fraction of phase 1 for the suggested experiments
         (default 0.5).
+    flash_exp_midpoints : bool
+        Same semantics as in ``pseudoternary_lle``.
+    model_at_exp_csv : str or None
+        If given (and ``flash_exp_midpoints=True``), write a CSV of the
+        model-predicted phase compositions at each experimental midpoint.
+        Columns: ``exp_index``, ``phase1_w_<comp>``, ``phase2_w_<comp>``
+        for all three components (mass fractions).  ``.csv`` is auto-appended.
 
     Returns
     -------
-    list[dict] or tuple[list[dict], list[dict]]
-        When ``suggest_n == 0``: one dict per detected LLE tie-line.
-        When ``suggest_n > 0``: ``(tie_line_data, suggestions)``.
+    Same return logic as ``pseudoternary_lle`` (see that function's docstring).
+    ``model_at_exp`` dicts contain ``'feed_3comp'``, ``'phase1_3comp'``,
+    ``'phase2_3comp'`` arrays instead of the ``_4comp`` variants.
 
     Side effects
     ------------
@@ -326,7 +394,49 @@ def ternary_lle(
         suggested_points=suggestions,
     )
 
+    # Flash experimental midpoints through the EOS
+    model_at_exp = []
+    if flash_exp_midpoints:
+        if exp_tie_lines:
+            model_at_exp = flash_midpoints(
+                eos, T, P, exp_tie_lines,
+                frac1=None,
+                molar_masses=molar_masses,
+                mass_basis=mass_basis,
+                is_pseudo=False,
+            )
+        else:
+            warnings.warn(
+                "flash_exp_midpoints=True but exp_tie_lines is None — nothing to flash.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+    # Write model-at-exp CSV if requested
+    if model_at_exp_csv is not None and flash_exp_midpoints:
+        mae_path = str(Path(model_at_exp_csv).with_suffix(".csv"))
+        names = [solute, solvent, diluent]
+        fieldnames = (
+            ["exp_index"]
+            + [f"phase1_w_{n}" for n in names]
+            + [f"phase2_w_{n}" for n in names]
+        )
+        with open(mae_path, "w", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=fieldnames)
+            writer.writeheader()
+            for d in model_at_exp:
+                w1 = _to_4comp_mass(d["phase1_3comp"], molar_masses)
+                w2 = _to_4comp_mass(d["phase2_3comp"], molar_masses)
+                row = {"exp_index": d["exp_index"]}
+                for i, n in enumerate(names):
+                    row[f"phase1_w_{n}"] = float(w1[i])
+                    row[f"phase2_w_{n}"] = float(w2[i])
+                writer.writerow(row)
+
+    if flash_exp_midpoints and suggest_n > 0:
+        return tie_line_data, suggestions, model_at_exp
+    if flash_exp_midpoints:
+        return tie_line_data, model_at_exp
     if suggest_n > 0:
         return tie_line_data, suggestions
-
     return tie_line_data

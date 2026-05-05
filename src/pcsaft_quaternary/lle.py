@@ -1,6 +1,7 @@
 """Core PC-SAFT flash calculation logic for pseudoternary LLE scanning."""
 
 import json
+import warnings
 from dataclasses import dataclass
 from typing import Any, Iterator
 
@@ -706,3 +707,151 @@ def suggest_experiments(
         )
 
     return suggestions
+
+
+def flash_midpoints(
+    eos: EquationOfState,
+    T: Any,
+    P: Any,
+    exp_tie_lines: list[dict],
+    *,
+    frac1: float | None,
+    molar_masses: np.ndarray,
+    mass_basis: bool,
+    is_pseudo: bool,
+) -> list[dict]:
+    """Flash the midpoint of each experimental tie-line and return the model-predicted phases.
+
+    For each experimental tie-line the feed is taken as the midpoint of its two
+    endpoint compositions, converted to mole fractions, and flashed through the EOS.
+    The resulting model tie-line is returned in the same dict format as
+    ``scan_pseudoternary`` / ``scan_ternary`` output.
+
+    Parameters
+    ----------
+    eos : feos.EquationOfState
+    T, P : si_units.SIObject
+    exp_tie_lines : list[dict]
+        Each dict must have ``'phase1_pseudo'`` and ``'phase2_pseudo'`` (3-tuples of
+        floats: solute, pseudo-solvent, diluent).  Basis (mass or mole) must match
+        ``mass_basis``.
+    frac1 : float or None
+        Mole fraction of solvent1 within the pseudo-solvent (for pseudoternary systems).
+        Pass ``None`` for true ternary systems (ignored when ``is_pseudo=False``).
+    molar_masses : np.ndarray
+        4-component (pseudoternary) or 3-component (ternary) molar masses in g/mol.
+    mass_basis : bool
+        If ``True``, ``phase1_pseudo`` / ``phase2_pseudo`` are in mass fractions.
+        If ``False``, they are in mole fractions.
+    is_pseudo : bool
+        ``True`` for a 4-component pseudoternary system; ``False`` for true ternary.
+
+    Returns
+    -------
+    list[dict]
+        One entry per successfully flashed tie-line.  Keys mirror scan output
+        (``feed_pseudo``, ``phase1_pseudo``, ``phase2_pseudo``,
+        ``feed_4comp`` / ``feed_3comp``, ``phase1_4comp`` / ``phase1_3comp``,
+        ``phase2_4comp`` / ``phase2_3comp``) plus ``'exp_index'`` (original index in
+        *exp_tie_lines*).  Tie-lines that fail the flash or the LLE density guard are
+        skipped with a ``UserWarning``.
+    """
+    _mol_m3 = si.MOL / si.METER**3
+
+    # Effective molar mass of the pseudo-solvent for mass→mole conversion
+    if is_pseudo:
+        M_pseudo = frac1 * molar_masses[1] + (1.0 - frac1) * molar_masses[2]
+        M_3 = np.array([molar_masses[0], M_pseudo, molar_masses[3]])
+    else:
+        M_3 = molar_masses  # already 3-comp
+
+    results = []
+    for idx, tl in enumerate(exp_tie_lines):
+        p1 = np.asarray(tl["phase1_pseudo"], dtype=float)
+        p2 = np.asarray(tl["phase2_pseudo"], dtype=float)
+        mid = 0.5 * p1 + 0.5 * p2
+
+        # Convert midpoint to 3-comp mole fractions
+        if mass_basis:
+            n3 = mid / M_3
+            n3 = n3 / n3.sum()
+        else:
+            n3 = mid / mid.sum()
+
+        # Expand to 4-comp feed for pseudoternary
+        if is_pseudo:
+            feed = np.array([n3[0], frac1 * n3[1], (1.0 - frac1) * n3[1], n3[2]])
+        else:
+            feed = n3
+
+        feed = np.where(feed < 1e-9, 1e-9, feed)
+        feed = feed / feed.sum()
+
+        try:
+            result = PhaseEquilibrium.tp_flash(eos, T, P, feed * si.MOL, max_iter=50)
+        except Exception:
+            warnings.warn(
+                f"flash_midpoints: exp tie-line {idx} raised an exception during flash.",
+                UserWarning,
+                stacklevel=2,
+            )
+            continue
+
+        x1 = np.array(result.liquid.molefracs)
+        x2 = np.array(result.vapor.molefracs)
+        rho1 = result.liquid.density / _mol_m3
+        rho2 = result.vapor.density / _mol_m3
+        if rho1 <= 600 or rho2 <= 600:
+            warnings.warn(
+                f"flash_midpoints: exp tie-line {idx} failed LLE density guard "
+                f"(rho1={rho1:.0f}, rho2={rho2:.0f} mol/m³).",
+                UserWarning,
+                stacklevel=2,
+            )
+            continue
+        if np.allclose(x1, x2, atol=1e-4):
+            warnings.warn(
+                f"flash_midpoints: exp tie-line {idx} phases are nearly identical.",
+                UserWarning,
+                stacklevel=2,
+            )
+            continue
+
+        if is_pseudo:
+            if mass_basis:
+                feed_pseudo = _to_pseudo_ternary_mass(feed, molar_masses)
+                ph1_pseudo = _to_pseudo_ternary_mass(x1, molar_masses)
+                ph2_pseudo = _to_pseudo_ternary_mass(x2, molar_masses)
+            else:
+                feed_pseudo = _to_pseudo_ternary(feed)
+                ph1_pseudo = _to_pseudo_ternary(x1)
+                ph2_pseudo = _to_pseudo_ternary(x2)
+            results.append({
+                "exp_index": idx,
+                "feed_pseudo": feed_pseudo,
+                "phase1_pseudo": ph1_pseudo,
+                "phase2_pseudo": ph2_pseudo,
+                "feed_4comp": feed,
+                "phase1_4comp": x1,
+                "phase2_4comp": x2,
+            })
+        else:
+            if mass_basis:
+                feed_pseudo = _to_ternary_mass(feed, molar_masses)
+                ph1_pseudo = _to_ternary_mass(x1, molar_masses)
+                ph2_pseudo = _to_ternary_mass(x2, molar_masses)
+            else:
+                feed_pseudo = tuple(float(v) for v in feed)
+                ph1_pseudo = tuple(float(v) for v in x1)
+                ph2_pseudo = tuple(float(v) for v in x2)
+            results.append({
+                "exp_index": idx,
+                "feed_pseudo": feed_pseudo,
+                "phase1_pseudo": ph1_pseudo,
+                "phase2_pseudo": ph2_pseudo,
+                "feed_3comp": feed,
+                "phase1_3comp": x1,
+                "phase2_3comp": x2,
+            })
+
+    return results
