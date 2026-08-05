@@ -67,6 +67,15 @@ wheels = [
 ]
 
 [[package]]
+name = "et-xmlfile"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/38/af70d7ab1ae9d4da450eeec1fa3918940a5fafb9055e934af8d6eb0c2313/et_xmlfile-2.0.0.tar.gz", hash = "sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54", size = 17234, upload-time = "2024-10-25T17:25:40.039Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/8b/5fe2cc11fee489817272089c4203e679c63b570a5aaeb18d852ae3cbba6a/et_xmlfile-2.0.0-py3-none-any.whl", hash = "sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa", size = 18059, upload-time = "2024-10-25T17:25:39.051Z" },
+]
+
+[[package]]
 name = "feos"
 version = "0.9.4"
 source = { registry = "https://pypi.org/simple" }
@@ -271,6 +280,18 @@ wheels = [
 ]
 
 [[package]]
+name = "openpyxl"
+version = "3.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "et-xmlfile" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3d/f9/88d94a75de065ea32619465d2f77b29a0469500e99012523b91cc4141cd1/openpyxl-3.1.5.tar.gz", hash = "sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050", size = 186464, upload-time = "2024-06-28T14:03:44.161Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c0/da/977ded879c29cbd04de313843e76868e6e13408a94ed6b987245dc7c8506/openpyxl-3.1.5-py2.py3-none-any.whl", hash = "sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2", size = 250910, upload-time = "2024-06-28T14:03:41.161Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.0"
 source = { registry = "https://pypi.org/simple" }
@@ -285,12 +306,14 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "feos" },
+    { name = "openpyxl" },
     { name = "python-ternary" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "feos", specifier = ">=0.9.4" },
+    { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "python-ternary", specifier = ">=1.0.8" },
 ]
 
@@ -393,6 +416,7 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/05/99/7790ced04da02792b911ff32a43ddcddaa827015dcdf5f232f631dee23de/si_units-0.11.1-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:10e326a7e3da4e695041d226af1cb4b2a696ad6afaac73da06b359baee9f5d04", size = 960899, upload-time = "2026-01-23T13:06:34.957Z" },
     { url = "https://files.pythonhosted.org/packages/09/6f/e4e4d8eb137d614e36a1b9fb5fa527e9e8f2a38d3c54abe2cfc0ebaf89b9/si_units-0.11.1-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:fb2cfedc6bb32832abf1ac8c9237d2890b711dffa337790df87da2243efa7a16", size = 901183, upload-time = "2026-01-23T13:06:36.372Z" },
     { url = "https://files.pythonhosted.org/packages/38/9a/145b4f9a8f31b2a5c4721065b96a37b6401261423f73ac4856167f57c5c9/si_units-0.11.1-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:46f7624741b67f86c5a9a98560b495c9d74f9530f3b134ce85c2dda5584b40e0", size = 1033443, upload-time = "2026-01-23T13:06:37.672Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/fa/18cdf348f1f0b17e9ec786912cb58feff09139f2a408dbf35bed25dee986/si_units-0.11.1-cp310-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:566cf36bf9528b94f377591b29101cde615cbcd2b327654af24b5bed00715aec", size = 1054512, upload-time = "2026-04-18T15:34:32.476Z" },
     { url = "https://files.pythonhosted.org/packages/04/9f/be677aa255a42c45e066967f1d842bce743309f0aefdb3ac9951ee545b34/si_units-0.11.1-cp310-abi3-win32.whl", hash = "sha256:b282ff0c42f82c622023cdbd1422153fb2aaef945fff7eb3732c61042252368b", size = 713711, upload-time = "2026-01-23T13:06:38.907Z" },
     { url = "https://files.pythonhosted.org/packages/35/f0/52e43d47c83b5309c88670b2f569d775d61e71b9ea3517c758f74601bc3b/si_units-0.11.1-cp310-abi3-win_amd64.whl", hash = "sha256:a93cf1b1f49c3c2112452904d755714fd2b9b5ec334aa4e3e25e08e5f2e80def", size = 796620, upload-time = "2026-01-23T13:06:40.216Z" },
 ]

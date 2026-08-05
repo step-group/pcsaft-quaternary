@@ -8,6 +8,7 @@ license = "MIT AND (BSD-2-Clause OR Apache-2.0)"
 authors = [{ name = "Maximilian Fleckenstein", email = "maximilianfv@uc.cl" }]
 dependencies = [
   "feos>=0.9.4",
+  "openpyxl>=3.1.5",
   "python-ternary>=1.0.8",
 ]
 
