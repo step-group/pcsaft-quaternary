@@ -1,8 +1,14 @@
 """Overlay MARTINI MD tie-lines (Status='OK') on the PC-SAFT pseudoternary diagrams.
 
 The 'Number Density' sheet is in MARTINI beads/nm^3, so bead counts are divided by
-BEADS before mass fractions are formed.  Bead counts come from
+BEADS before fractions are formed.  Bead counts come from
 MT-4/martini_DES/martini_DES/ff/*.itp; one W bead represents 4 water molecules.
+Rows present in the 'Mol Density' sheet are already per-molecule and override it.
+
+Usage:
+    uv run examples/06_md_overlay.py                 # all systems, mass fractions
+    uv run examples/06_md_overlay.py ThyCam          # one system
+    uv run examples/06_md_overlay.py --molar ThyCam  # mole fractions, '_molar' suffix
 """
 
 import csv
@@ -63,43 +69,48 @@ E5,aqueous,0.01262,0.00005,0.00015,0.98718
 }
 
 
-def _mass_pseudo(dens, hba, hbd):
-    """{component: molecular density} -> (w_solute, w_pseudo_solvent, w_diluent).
+def _pseudo_frac(dens, hba, hbd, mass_basis=True):
+    """{component: molecular density} -> (solute, pseudo-solvent, diluent) fractions.
 
-    Mass fractions are ratios, so any consistent density unit works (mol/L,
-    molecules/nm^3, …) as long as every component uses the same one.
+    Fractions are ratios, so any consistent density unit works (mol/L,
+    molecules/nm^3, …) as long as every component uses the same one.  With
+    ``mass_basis=False`` the molecular amounts are used directly, giving mole
+    fractions.
     """
-    mass = {k: v * MW[k] for k, v in dens.items()}
-    total = sum(mass.values())
+    amt = {k: v * MW[k] for k, v in dens.items()} if mass_basis else dict(dens)
+    total = sum(amt.values())
     return (
-        mass[SOLUTE] / total,
-        (mass[hba] + mass[hbd]) / total,
-        mass["water"] / total,
+        amt[SOLUTE] / total,
+        (amt[hba] + amt[hbd]) / total,
+        amt["water"] / total,
     )
 
 
-def _from_beads(n_hba, n_hbd, n_water, n_phe, hba, hbd):
-    """MARTINI beads/nm^3 -> pseudo-ternary mass fractions."""
-    return _mass_pseudo({
+def _from_beads(n_hba, n_hbd, n_water, n_phe, hba, hbd, mass_basis=True):
+    """MARTINI beads/nm^3 -> pseudo-ternary fractions."""
+    return _pseudo_frac({
         hba: n_hba / BEADS[hba],
         hbd: n_hbd / BEADS[hbd],
         "water": n_water / BEADS["water"],
         SOLUTE: n_phe / BEADS[SOLUTE],
-    }, hba, hbd)
+    }, hba, hbd, mass_basis)
 
 
-def _from_mol_per_l(c_hba, c_hbd, c_water, c_phe, hba, hbd):
-    """Molecular molar densities (mol/L) -> pseudo-ternary mass fractions."""
-    return _mass_pseudo(
-        {hba: c_hba, hbd: c_hbd, "water": c_water, SOLUTE: c_phe}, hba, hbd
+def _from_mol_per_l(c_hba, c_hbd, c_water, c_phe, hba, hbd, mass_basis=True):
+    """Molecular molar densities (mol/L) -> pseudo-ternary fractions."""
+    return _pseudo_frac(
+        {hba: c_hba, hbd: c_hbd, "water": c_water, SOLUTE: c_phe},
+        hba, hbd, mass_basis,
     )
 
 
-def read_exp_tie_lines(hba, hbd):
+def read_exp_tie_lines(hba, hbd, mass_basis=True):
     """Experimental tie-lines for one DES, or [] if none were measured.
 
     Collapses the two DES components onto the pseudo-solvent axis, matching the
-    convention used for the model and MD data.
+    convention used for the model and MD data.  The CSV is in mass fractions;
+    with ``mass_basis=False`` each is divided by its molar mass first, giving
+    mole fractions.
     """
     text = EXP_CSV.get((hba, hbd))
     if text is None:
@@ -107,10 +118,15 @@ def read_exp_tie_lines(hba, hbd):
 
     by_vial = defaultdict(dict)
     for r in csv.DictReader(io.StringIO(text)):
-        by_vial[r["vial"]][r["phase"]] = (
-            float(r["w_2PE"]),
-            float(r[f"w_{hba}"]) + float(r[f"w_{hbd}"]),
-            float(r["w_water"]),
+        w = {
+            SOLUTE: float(r["w_2PE"]),
+            hba: float(r[f"w_{hba}"]),
+            hbd: float(r[f"w_{hbd}"]),
+            "water": float(r["w_water"]),
+        }
+        # w_i / M_i is a relative molar amount; _pseudo_frac normalises it
+        by_vial[r["vial"]][r["phase"]] = _pseudo_frac(
+            {k: v / MW[k] for k, v in w.items()}, hba, hbd, mass_basis
         )
     return [
         {"phase1_pseudo": p["organic"], "phase2_pseudo": p["aqueous"]}
@@ -118,7 +134,7 @@ def read_exp_tie_lines(hba, hbd):
     ]
 
 
-def read_md_tie_lines(path=XLSX):
+def read_md_tie_lines(path=XLSX, mass_basis=True):
     """{(hba, hbd): [{'phase1_pseudo':…, 'phase2_pseudo':…}, …]} for Status == 'OK'.
 
     Rows present in the 'Mol Density' sheet are recomputed molecular densities and
@@ -140,22 +156,25 @@ def read_md_tie_lines(path=XLSX):
         hba, hbd = row[4], row[5]
         src, conv = (molar[row[0]], _from_mol_per_l) if row[0] in molar else (row, _from_beads)
         out[(hba, hbd)].append({
-            "phase1_pseudo": conv(*src[7:11], hba, hbd),    # DES-rich
-            "phase2_pseudo": conv(*src[12:16], hba, hbd),   # water-rich
+            "phase1_pseudo": conv(*src[7:11], hba, hbd, mass_basis),    # DES-rich
+            "phase2_pseudo": conv(*src[12:16], hba, hbd, mass_basis),   # water-rich
         })
     return dict(out)
 
 
-def main(only=None):
+def main(only=None, mass_basis=True):
     pure_jsons = [str(DATA / "thiswork2026_pure.json"), str(DATA / "water_models.json")]
-    md = read_md_tie_lines()
+    md = read_md_tie_lines(mass_basis=mass_basis)
+    suffix = "" if mass_basis else "_molar"
 
     for (hba, hbd), tls in md.items():
         name = SYSTEM_NAMES[(hba, hbd)]
         if only and name not in only:
             continue
-        exp = read_exp_tie_lines(hba, hbd)
-        print(f"\n{name}: {hba} + {hbd} — {len(tls)} MD, {len(exp)} experimental tie-line(s)")
+        exp = read_exp_tie_lines(hba, hbd, mass_basis=mass_basis)
+        basis = "mass" if mass_basis else "mole"
+        print(f"\n{name}: {hba} + {hbd} — {len(tls)} MD, {len(exp)} experimental "
+              f"tie-line(s), {basis} fractions")
         pseudoternary_lle(
             pure_json=pure_jsons,
             T=303.15 * si.KELVIN,
@@ -165,10 +184,10 @@ def main(only=None):
             solvent2=hbd,
             diluent=DILUENT,
             solvent_ratio=1.0,
-            mass_basis=True,
+            mass_basis=mass_basis,
             exp_tie_lines=exp or None,          # red circles
             exp_sets=[("MARTINI MD", "#1f77b4", "s", tls)],   # blue squares
-            output=str(OUT / f"LLE_2PE+{name}+water_T30C_MD"),
+            output=str(OUT / f"LLE_2PE+{name}+water_T30C_MD{suffix}"),
         )
 
 
@@ -192,17 +211,28 @@ def _self_check():
     got = sorted(round(tl["phase1_pseudo"][0], 5) for tl in thycam)
     assert got == [0.01054, 0.04163, 0.08233], f"unexpected ThyCam w(2PE): {got}"
 
-    exp = read_exp_tie_lines("thymol", "camphor")
-    assert len(exp) == 6, f"expected 6 experimental vials, got {len(exp)}"
-    for tl in exp:
-        for key in ("phase1_pseudo", "phase2_pseudo"):
-            assert abs(sum(tl[key]) - 1.0) < 2e-5, f"exp {key} does not sum to 1"
-    # organic phase must hold more solute than the aqueous one it coexists with
-    assert all(tl["phase1_pseudo"][0] >= tl["phase2_pseudo"][0] for tl in exp)
+    for basis in (True, False):
+        exp = read_exp_tie_lines("thymol", "camphor", mass_basis=basis)
+        assert len(exp) == 6, f"expected 6 experimental vials, got {len(exp)}"
+        for tl in exp:
+            for key in ("phase1_pseudo", "phase2_pseudo"):
+                assert abs(sum(tl[key]) - 1.0) < 1e-9, f"exp {key} does not sum to 1"
+        # organic phase must hold more solute than the aqueous one it coexists with
+        assert all(tl["phase1_pseudo"][0] >= tl["phase2_pseudo"][0] for tl in exp)
+
+    # mole basis: same tie-lines, water-heavy on a per-molecule count
+    md_x = read_md_tie_lines(mass_basis=False)
+    assert sum(len(v) for v in md_x.values()) == 13
+    for tls in md_x.values():
+        for tl in tls:
+            for key in ("phase1_pseudo", "phase2_pseudo"):
+                assert abs(sum(tl[key]) - 1.0) < 1e-9, f"mole {key} does not sum to 1"
 
 
 if __name__ == "__main__":
     import sys
 
+    args = sys.argv[1:]
+    molar = "--molar" in args
     _self_check()
-    main(only=sys.argv[1:] or None)
+    main(only=[a for a in args if not a.startswith("-")] or None, mass_basis=not molar)
