@@ -8,7 +8,7 @@ from matplotlib.lines import Line2D
 import ternary
 
 
-def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, exp_tie_lines=None, suggested_points=None):
+def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, exp_tie_lines=None, suggested_points=None, exp_sets=None):
     """Generate and save a pseudoternary LLE phase diagram.
 
     Parameters
@@ -32,6 +32,13 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, 
         Optional output of ``suggest_experiments``.  Each dict must contain
         ``z_pseudo`` (3-tuple: solute, pseudo-solvent, diluent).  Points are
         plotted as numbered filled circles.
+    exp_sets : list[tuple] or None
+        Additional overlay tie-line sets, each ``(label, color, marker,
+        tie_lines)``, where ``tie_lines`` has the same shape as
+        ``exp_tie_lines``.  Use this to show several sources (experiment,
+        simulation, …) on one diagram with distinct styling and legend
+        entries.  ``exp_tie_lines`` is equivalent to a leading
+        ``("Experimental", "red", "o", …)`` entry.
     """
     if not tie_line_data:
         return
@@ -103,9 +110,15 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, 
             zorder=5,
         )
 
-    # --- experimental tie-lines ---
+    # --- overlay tie-line sets (experimental, simulation, …) ---
+    # Normalised to [(label, color, marker, tie_lines), …]; the legacy
+    # ``exp_tie_lines`` argument is simply the first such set.
+    overlays = list(exp_sets or [])
     if exp_tie_lines:
-        for d in exp_tie_lines:
+        overlays.insert(0, ("Experimental", "red", "o", exp_tie_lines))
+
+    for _label, color, marker, tls in overlays:
+        for d in tls:
             p1 = d["phase1_pseudo"]
             p2 = d["phase2_pseudo"]
             p1_plot = (p1[2], p1[0], p1[1])
@@ -113,12 +126,12 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, 
             tax.line(
                 p1_plot, p2_plot,
                 linewidth=1.5,
-                color="red",
+                color=color,
                 linestyle="-",
-                marker="o",
+                marker=marker,
                 markersize=5,
-                markerfacecolor="red",
-                markeredgecolor="red",
+                markerfacecolor=color,
+                markeredgecolor=color,
                 zorder=10,
             )
 
@@ -144,9 +157,9 @@ def plot_pseudoternary_lle(tie_line_data, names_pseudo, T_K, P_Pa, output_path, 
     handles = [
         Line2D([0], [0], color=_BINODAL, linewidth=2, label="PC-SAFT"),
     ]
-    if exp_tie_lines:
+    for label, color, marker, _tls in overlays:
         handles.append(
-            Line2D([0], [0], color="red", linewidth=1.5, marker="o", markersize=5, label="Experimental")
+            Line2D([0], [0], color=color, linewidth=1.5, marker=marker, markersize=5, label=label)
         )
     if suggested_points:
         handles.append(

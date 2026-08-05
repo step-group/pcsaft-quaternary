@@ -5,6 +5,8 @@ BEADS before mass fractions are formed.  Bead counts come from
 MT-4/martini_DES/martini_DES/ff/*.itp; one W bead represents 4 water molecules.
 """
 
+import csv
+import io
 from collections import defaultdict
 from pathlib import Path
 
@@ -40,6 +42,26 @@ SYSTEM_NAMES = {
 SOLUTE = "2-phenylethanol"
 DILUENT = "water4C_aparicio2007"
 
+# Real experimental tie-lines, mass fractions, verbatim as measured.  One row per
+# phase; rows pair up by vial.  Keyed by (HBA, HBD) so more systems can be added.
+EXP_CSV = {
+    ("thymol", "camphor"): """\
+vial,phase,w_2PE,w_thymol,w_camphor,w_water
+E0,organic,0.00000,0.49752,0.48608,0.01640
+E0,aqueous,0.00000,0.00034,0.00046,0.99920
+E1,organic,0.05152,0.47373,0.45813,0.01663
+E1,aqueous,0.00114,0.00018,0.00037,0.99831
+E2,organic,0.88404,0.01734,0.01708,0.08153
+E2,aqueous,0.01608,0.00001,0.00003,0.98388
+E3,organic,0.45210,0.25854,0.25371,0.03566
+E3,aqueous,0.00974,0.00010,0.00027,0.98989
+E4,organic,0.23552,0.37859,0.36244,0.02346
+E4,aqueous,0.00537,0.00015,0.00033,0.99416
+E5,organic,0.66922,0.13826,0.13154,0.06098
+E5,aqueous,0.01262,0.00005,0.00015,0.98718
+""",
+}
+
 
 def _mass_pseudo(dens, hba, hbd):
     """{component: molecular density} -> (w_solute, w_pseudo_solvent, w_diluent).
@@ -71,6 +93,29 @@ def _from_mol_per_l(c_hba, c_hbd, c_water, c_phe, hba, hbd):
     return _mass_pseudo(
         {hba: c_hba, hbd: c_hbd, "water": c_water, SOLUTE: c_phe}, hba, hbd
     )
+
+
+def read_exp_tie_lines(hba, hbd):
+    """Experimental tie-lines for one DES, or [] if none were measured.
+
+    Collapses the two DES components onto the pseudo-solvent axis, matching the
+    convention used for the model and MD data.
+    """
+    text = EXP_CSV.get((hba, hbd))
+    if text is None:
+        return []
+
+    by_vial = defaultdict(dict)
+    for r in csv.DictReader(io.StringIO(text)):
+        by_vial[r["vial"]][r["phase"]] = (
+            float(r["w_2PE"]),
+            float(r[f"w_{hba}"]) + float(r[f"w_{hbd}"]),
+            float(r["w_water"]),
+        )
+    return [
+        {"phase1_pseudo": p["organic"], "phase2_pseudo": p["aqueous"]}
+        for _vial, p in sorted(by_vial.items())
+    ]
 
 
 def read_md_tie_lines(path=XLSX):
@@ -109,7 +154,8 @@ def main(only=None):
         name = SYSTEM_NAMES[(hba, hbd)]
         if only and name not in only:
             continue
-        print(f"\n{name}: {hba} + {hbd} — {len(tls)} MD tie-line(s)")
+        exp = read_exp_tie_lines(hba, hbd)
+        print(f"\n{name}: {hba} + {hbd} — {len(tls)} MD, {len(exp)} experimental tie-line(s)")
         pseudoternary_lle(
             pure_json=pure_jsons,
             T=303.15 * si.KELVIN,
@@ -120,7 +166,8 @@ def main(only=None):
             diluent=DILUENT,
             solvent_ratio=1.0,
             mass_basis=True,
-            exp_tie_lines=tls,
+            exp_tie_lines=exp or None,          # red circles
+            exp_sets=[("MARTINI MD", "#1f77b4", "s", tls)],   # blue squares
             output=str(OUT / f"LLE_2PE+{name}+water_T30C_MD"),
         )
 
@@ -144,6 +191,14 @@ def _self_check():
     thycam = md[("thymol", "camphor")]
     got = sorted(round(tl["phase1_pseudo"][0], 5) for tl in thycam)
     assert got == [0.01054, 0.04163, 0.08233], f"unexpected ThyCam w(2PE): {got}"
+
+    exp = read_exp_tie_lines("thymol", "camphor")
+    assert len(exp) == 6, f"expected 6 experimental vials, got {len(exp)}"
+    for tl in exp:
+        for key in ("phase1_pseudo", "phase2_pseudo"):
+            assert abs(sum(tl[key]) - 1.0) < 2e-5, f"exp {key} does not sum to 1"
+    # organic phase must hold more solute than the aqueous one it coexists with
+    assert all(tl["phase1_pseudo"][0] >= tl["phase2_pseudo"][0] for tl in exp)
 
 
 if __name__ == "__main__":

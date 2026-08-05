@@ -43,6 +43,7 @@ def pseudoternary_lle(
     csv_output: str | None = None,
     flash_exp_midpoints: bool = False,
     model_at_exp_csv: str | None = None,
+    exp_sets: list[tuple] | None = None,
 ) -> list[dict] | tuple[list[dict], ...]:
     """Compute and plot a pseudoternary LLE phase diagram using PC-SAFT.
 
@@ -108,6 +109,13 @@ def pseudoternary_lle(
         model-predicted phase compositions at each experimental midpoint.
         Columns: ``exp_index``, ``phase1_w_<comp>``, ``phase2_w_<comp>``
         for all four components (mass fractions).  ``.csv`` is auto-appended.
+    exp_sets : list[tuple] or None
+        Additional overlay tie-line sets, each ``(label, color, marker,
+        tie_lines)``, drawn alongside ``exp_tie_lines`` with their own styling
+        and legend entries.  Use when comparing several data sources (e.g.
+        experiment and molecular simulation) on one diagram.  Basis must match
+        ``mass_basis``.  Not used by ``flash_exp_midpoints``, which flashes
+        ``exp_tie_lines`` only.
 
     Returns
     -------
@@ -196,6 +204,7 @@ def pseudoternary_lle(
         tie_line_data, names_pseudo, T_K, P_Pa, output,
         exp_tie_lines=exp_tie_lines,
         suggested_points=suggestions,
+        exp_sets=exp_sets,
     )
 
     # Write scan CSV if requested
