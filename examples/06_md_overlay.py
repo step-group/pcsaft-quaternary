@@ -41,15 +41,13 @@ SOLUTE = "2-phenylethanol"
 DILUENT = "water4C_aparicio2007"
 
 
-def _pseudo(n_hba, n_hbd, n_water, n_phe, hba, hbd):
-    """Bead densities -> (w_solute, w_pseudo_solvent, w_diluent) mass fractions."""
-    mol = {
-        hba: n_hba / BEADS[hba],
-        hbd: n_hbd / BEADS[hbd],
-        "water": n_water / BEADS["water"],
-        SOLUTE: n_phe / BEADS[SOLUTE],
-    }
-    mass = {k: v * MW[k] for k, v in mol.items()}
+def _mass_pseudo(dens, hba, hbd):
+    """{component: molecular density} -> (w_solute, w_pseudo_solvent, w_diluent).
+
+    Mass fractions are ratios, so any consistent density unit works (mol/L,
+    molecules/nm^3, …) as long as every component uses the same one.
+    """
+    mass = {k: v * MW[k] for k, v in dens.items()}
     total = sum(mass.values())
     return (
         mass[SOLUTE] / total,
@@ -58,27 +56,59 @@ def _pseudo(n_hba, n_hbd, n_water, n_phe, hba, hbd):
     )
 
 
+def _from_beads(n_hba, n_hbd, n_water, n_phe, hba, hbd):
+    """MARTINI beads/nm^3 -> pseudo-ternary mass fractions."""
+    return _mass_pseudo({
+        hba: n_hba / BEADS[hba],
+        hbd: n_hbd / BEADS[hbd],
+        "water": n_water / BEADS["water"],
+        SOLUTE: n_phe / BEADS[SOLUTE],
+    }, hba, hbd)
+
+
+def _from_mol_per_l(c_hba, c_hbd, c_water, c_phe, hba, hbd):
+    """Molecular molar densities (mol/L) -> pseudo-ternary mass fractions."""
+    return _mass_pseudo(
+        {hba: c_hba, hbd: c_hbd, "water": c_water, SOLUTE: c_phe}, hba, hbd
+    )
+
+
 def read_md_tie_lines(path=XLSX):
-    """{(hba, hbd): [{'phase1_pseudo':…, 'phase2_pseudo':…}, …]} for Status == 'OK'."""
-    ws = openpyxl.load_workbook(path, data_only=True)["Number Density"]
+    """{(hba, hbd): [{'phase1_pseudo':…, 'phase2_pseudo':…}, …]} for Status == 'OK'.
+
+    Rows present in the 'Mol Density' sheet are recomputed molecular densities and
+    take precedence; everything else falls back to the raw MARTINI bead counts.
+    """
+    wb = openpyxl.load_workbook(path, data_only=True)
+    molar = {}
+    if "Mol Density" in wb.sheetnames:
+        molar = {
+            r[0]: r
+            for r in wb["Mol Density"].iter_rows(min_row=4, values_only=True)
+            if r[0] is not None
+        }
+
     out = defaultdict(list)
-    for row in ws.iter_rows(min_row=4, max_row=27, values_only=True):
+    for row in wb["Number Density"].iter_rows(min_row=4, max_row=27, values_only=True):
         if row[6] != "OK":
             continue
         hba, hbd = row[4], row[5]
+        src, conv = (molar[row[0]], _from_mol_per_l) if row[0] in molar else (row, _from_beads)
         out[(hba, hbd)].append({
-            "phase1_pseudo": _pseudo(*row[7:11], hba, hbd),    # DES-rich
-            "phase2_pseudo": _pseudo(*row[12:16], hba, hbd),   # water-rich
+            "phase1_pseudo": conv(*src[7:11], hba, hbd),    # DES-rich
+            "phase2_pseudo": conv(*src[12:16], hba, hbd),   # water-rich
         })
     return dict(out)
 
 
-def main():
+def main(only=None):
     pure_jsons = [str(DATA / "thiswork2026_pure.json"), str(DATA / "water_models.json")]
     md = read_md_tie_lines()
 
     for (hba, hbd), tls in md.items():
         name = SYSTEM_NAMES[(hba, hbd)]
+        if only and name not in only:
+            continue
         print(f"\n{name}: {hba} + {hbd} — {len(tls)} MD tie-line(s)")
         pseudoternary_lle(
             pure_json=pure_jsons,
@@ -110,7 +140,14 @@ def _self_check():
             assert tl["phase2_pseudo"][2] > 0.9
             assert tl["phase1_pseudo"][1] > 0.9   # DES-rich phase is DES-rich
 
+    # thymol:camphor comes from the recomputed 'Mol Density' rows
+    thycam = md[("thymol", "camphor")]
+    got = sorted(round(tl["phase1_pseudo"][0], 5) for tl in thycam)
+    assert got == [0.01054, 0.04163, 0.08233], f"unexpected ThyCam w(2PE): {got}"
+
 
 if __name__ == "__main__":
+    import sys
+
     _self_check()
-    main()
+    main(only=sys.argv[1:] or None)
